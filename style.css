@@ -35,10 +35,10 @@ body.sl-system-open { overflow: hidden; }
 .sl-system-ready-state { color: var(--sl-system-success); font-size: .7rem; }
 .sl-system-ready-state i { margin-right: .25rem; }
 
-.sl-system-overlay { position: fixed; z-index: 10050; inset: 0; display: grid; place-items: center; visibility: hidden; overflow: hidden; background: rgba(1, 5, 12, .78); opacity: 0; transition: opacity .28s ease, visibility .28s ease; }
+.sl-system-overlay { position: fixed; z-index: 100000; inset: 0; display: grid; place-items: center; visibility: hidden; overflow: hidden; pointer-events: none; isolation: isolate; background: rgba(1, 5, 12, .78); opacity: 0; transition: opacity .28s ease, visibility .28s ease; }
 .sl-system-overlay::before { position: absolute; inset: -35%; content: ""; background: conic-gradient(from 140deg, transparent, rgba(var(--sl-system-accent-rgb), calc(var(--sl-system-glow) * .16)), transparent 24%, rgba(142, 156, 255, calc(var(--sl-system-glow) * .13)), transparent 55%); filter: blur(28px); animation: sl-system-ambient 12s linear infinite; pointer-events: none; }
 .sl-system-overlay::after { position: absolute; inset: 0; content: ""; opacity: .16; background: repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .06) 5px, transparent 6px); mix-blend-mode: screen; pointer-events: none; }
-.sl-system-overlay.is-open { visibility: visible; opacity: 1; }
+.sl-system-overlay.is-open { visibility: visible; pointer-events: auto; opacity: 1; }
 .sl-system-overlay.is-declining .sl-system-frame { transform: scale(.84); opacity: 0; filter: blur(8px); }
 .sl-system-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: default; }
 .sl-system-frame { position: relative; z-index: 1; display: grid; width: min(1100px, calc(100vw - 42px)); height: min(780px, calc(100vh - 42px)); overflow: hidden; color: var(--sl-system-ink); background: linear-gradient(135deg, rgba(7, 24, 42, var(--sl-system-glass)), rgba(3, 10, 20, .97)); border: 1px solid rgba(var(--sl-system-accent-rgb), .55); box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset, 0 0 48px rgba(var(--sl-system-accent-rgb), calc(var(--sl-system-glow) * .25)), 0 28px 90px rgba(0, 0, 0, .55); clip-path: polygon(0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px)); transform: scale(.96) translateY(8px); opacity: 0; transition: transform .34s cubic-bezier(.2, .8, .2, 1), opacity .28s ease, filter .34s ease; }
