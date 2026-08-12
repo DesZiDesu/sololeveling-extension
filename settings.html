@@ -1,13 +1,13 @@
 <div id="sl-system-settings" class="sl-system-settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header interactable" tabindex="0" role="button" aria-expanded="false">
-            <b><span class="sl-system-settings-mark">SYS</span> The System</b>
+            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.4.0</span></b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down" aria-hidden="true"></div>
         </div>
         <div class="inline-drawer-content">
             <div class="sl-system-settings-heading">
                 <span class="sl-system-eyebrow">Solo Leveling interface</span>
-                <p>Open the system onboarding sequence or return to the active player status screen.</p>
+                <p>Every chat has its own acceptance, profile, inventory, equipment, shop, stat points, and queued actions.</p>
             </div>
 
             <label class="checkbox_label" for="sl-system-show-launcher">
@@ -27,9 +27,10 @@
                 <label class="sl-system-settings-field" for="sl-system-accent"><span>Interface color</span><input id="sl-system-accent" type="color" value="#45c9ff" /></label>
                 <label class="sl-system-settings-field" for="sl-system-glass"><span>Glass opacity</span><input id="sl-system-glass" type="range" min="55" max="98" value="86" /></label>
                 <label class="sl-system-settings-field" for="sl-system-glow"><span>Animated glow</span><input id="sl-system-glow" type="range" min="0" max="100" value="48" /></label>
+                <label class="sl-system-settings-field" for="sl-system-notification-position"><span>Dynamic Island position</span><select id="sl-system-notification-position"><option value="top-center">Top center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-center">Bottom center</option></select></label>
             </div>
 
-            <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The extension uses SillyTavern’s active provider/model through its extension context. It does not request or store a separate API key, and it adds no local content filter.</span></div>
+            <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The System uses SillyTavern’s active provider/model. Profile and item images are saved only in the active chat metadata.</span></div>
             <div class="sl-system-settings-actions">
                 <button id="sl-system-open-from-settings" class="menu_button" type="button" data-sl-open-system="true"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Open The System</button>
                 <button id="sl-system-sync-from-settings" class="menu_button" type="button"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync latest turn</button>
