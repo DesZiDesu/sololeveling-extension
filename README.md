@@ -4,6 +4,8 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
+Version 0.2.1 repairs launcher behavior after in-place extension updates by replacing stale interface markup and rebinding both entry points.
+
 - Adds a **The System** drawer to the SillyTavern Extensions page.
 - Adds a **The System** launcher to the wand menu.
 - Opens a framed, animated system interface with a wide PC layout and a stacked mobile layout.
