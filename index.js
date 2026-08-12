@@ -4,7 +4,8 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.2.2';
+const UI_VERSION = '0.3.0';
+const ONBOARDING_REVISION = 3;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     accentColor: '#45c9ff',
     glassOpacity: 86,
     glowStrength: 48,
+    onboardingRevision: ONBOARDING_REVISION,
 });
 
 const TABS = [
@@ -73,6 +75,11 @@ function getSettings() {
     currentContext.extensionSettings ||= {};
     currentContext.extensionSettings[SETTINGS_KEY] ||= { ...DEFAULT_SETTINGS };
     const settings = currentContext.extensionSettings[SETTINGS_KEY];
+    if (settings.onboardingRevision !== ONBOARDING_REVISION) {
+        settings.systemAccepted = false;
+        settings.onboardingRevision = ONBOARDING_REVISION;
+        currentContext.saveSettingsDebounced?.();
+    }
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) if (settings[key] === undefined) settings[key] = value;
     settings.glassOpacity = number(settings.glassOpacity, DEFAULT_SETTINGS.glassOpacity, 55, 98);
     settings.glowStrength = number(settings.glowStrength, DEFAULT_SETTINGS.glowStrength, 0, 100);
@@ -260,7 +267,7 @@ function ensureRuntimeOpenStyles() {
     if (document.getElementById('sl-system-runtime-open-styles')) return;
     const style = document.createElement('style');
     style.id = 'sl-system-runtime-open-styles';
-    style.textContent = `#sl-system-overlay{position:fixed;inset:0;z-index:2147483000}#sl-system-overlay.is-open{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}#sl-system-overlay.is-open #sl-system-frame{visibility:visible!important;opacity:1!important}`;
+    style.textContent = `#sl-system-overlay{position:fixed;inset:0;z-index:5000}#sl-system-overlay.is-open{display:grid!important;visibility:visible!important;pointer-events:auto!important}#sl-system-overlay.is-open #sl-system-panel{visibility:visible!important;opacity:1!important;transform:translateX(0)!important}@media(max-width:800px){#sl-system-overlay.is-open #sl-system-panel{transform:translateY(0)!important}}`;
     (document.head || document.documentElement).appendChild(style);
 }
 
@@ -274,14 +281,14 @@ function activateTab(tabId) {
 
 function buildInterface() {
     const existing = document.getElementById('sl-system-overlay');
-    if (existing?.dataset.slUiVersion === UI_VERSION && existing.querySelector('#sl-system-frame')) return;
+    if (existing?.dataset.slUiVersion === UI_VERSION && existing.querySelector('#sl-system-panel')) return;
     if (existing) {
         console.info('[The System] Replacing a stale interface from an earlier extension build.');
         existing.remove();
     }
     const overlay = document.createElement('div');
     overlay.id = 'sl-system-overlay'; overlay.className = 'sl-system-overlay'; overlay.dataset.slUiVersion = UI_VERSION; overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-frame" class="sl-system-frame" role="dialog" aria-modal="true" aria-labelledby="sl-system-title" tabindex="-1"><div id="sl-system-notification" class="sl-system-phase sl-system-notification" hidden><div class="sl-system-notification-frame"><aside class="sl-system-vertical-label">NOTIFICATION</aside><div class="sl-system-notification-icon"><i class="fa-solid fa-circle-exclamation"></i></div><div class="sl-system-notification-copy"><span class="sl-system-eyebrow">Quest initialization</span><h2>New quest detected</h2><p class="sl-system-quote">“Your heart will stop in 0.02 seconds if you choose not to accept.”</p><p>Will you accept the system and become a Player?</p><div class="sl-system-choice-row"><button class="sl-system-choice-button is-accept" type="button" data-sl-action="accept"><span>YES</span><small>ACCEPT</small></button><button class="sl-system-choice-button is-decline" type="button" data-sl-action="decline"><span>NO</span><small>DECLINE</small></button></div></div></div></div><div id="sl-system-acknowledgement" class="sl-system-phase sl-system-acknowledgement" hidden><div class="sl-system-notification-frame"><aside class="sl-system-vertical-label">NOTIFICATION</aside><div class="sl-system-notification-icon"><i class="fa-solid fa-circle-check"></i></div><div class="sl-system-notification-copy"><span class="sl-system-eyebrow">System response</span><h2>Congratulations, Player.</h2><p class="sl-system-quote">You are now connected to The System.</p><p class="sl-system-ack-small">Initializing Status interface…</p></div></div></div><div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><div class="sl-system-main-brand"><span class="sl-system-sys-mark">SYS</span><div><span class="sl-system-eyebrow">Solo Leveling interface</span><h2 id="sl-system-title">The System</h2></div></div><div class="sl-system-main-state"><i class="fa-solid fa-circle"></i> ONLINE</div><button class="sl-system-close" type="button" data-sl-action="close" aria-label="Close The System"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-system-workspace"><nav class="sl-system-nav" aria-label="The System sections" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main></div><footer class="sl-system-main-footer"><span><i class="fa-solid fa-link"></i> Active chat state</span><button type="button" data-sl-action="sync"><i class="fa-solid fa-rotate"></i> Sync latest turn</button><span>v${UI_VERSION}</span></footer></div></section>`;
+    overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-panel" class="sl-system-panel" role="dialog" aria-modal="true" aria-labelledby="sl-system-title" tabindex="-1"><div id="sl-system-notification" class="sl-system-phase sl-system-notification" hidden><div class="sl-system-notification-frame"><aside class="sl-system-vertical-label">NOTIFICATION</aside><div class="sl-system-notification-icon"><i class="fa-solid fa-circle-exclamation"></i></div><div class="sl-system-notification-copy"><span class="sl-system-eyebrow">Quest initialization</span><h2>New quest detected</h2><p class="sl-system-quote">“Your heart will stop in 0.02 seconds if you choose not to accept.”</p><p>Will you accept the system and become a Player?</p><div class="sl-system-choice-row"><button class="sl-system-choice-button is-accept" type="button" data-sl-action="accept"><span>YES</span><small>ACCEPT</small></button><button class="sl-system-choice-button is-decline" type="button" data-sl-action="decline"><span>NO</span><small>DECLINE</small></button></div></div></div></div><div id="sl-system-acknowledgement" class="sl-system-phase sl-system-acknowledgement" hidden><div class="sl-system-notification-frame"><aside class="sl-system-vertical-label">NOTIFICATION</aside><div class="sl-system-notification-icon"><i class="fa-solid fa-circle-check"></i></div><div class="sl-system-notification-copy"><span class="sl-system-eyebrow">System response</span><h2>Congratulations, Player.</h2><p class="sl-system-quote">You are now connected to The System.</p><p class="sl-system-ack-small">Initializing Status interface…</p></div></div></div><div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><div class="sl-system-main-brand"><span class="sl-system-sys-mark">SYS</span><div><span class="sl-system-eyebrow">Solo Leveling interface</span><h2 id="sl-system-title">The System</h2></div></div><div class="sl-system-main-state"><i class="fa-solid fa-circle"></i> ONLINE</div><button class="sl-system-close" type="button" data-sl-action="close" aria-label="Close The System"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-system-workspace"><nav class="sl-system-nav" aria-label="The System sections" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main></div><footer class="sl-system-main-footer"><span><i class="fa-solid fa-link"></i> Active chat state</span><button type="button" data-sl-action="sync"><i class="fa-solid fa-rotate"></i> Sync latest turn</button><span>v${UI_VERSION}</span></footer></div></section>`;
     document.body.appendChild(overlay);
     overlay.querySelector('.sl-system-backdrop')?.addEventListener('click', closeInterface);
     overlay.querySelectorAll('[data-sl-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.slTab)));
@@ -317,9 +324,9 @@ function openInterface() {
     try {
         ensureRuntimeOpenStyles();
         buildInterface();
-        const overlay = document.getElementById('sl-system-overlay'); const frame = document.getElementById('sl-system-frame');
-        if (!overlay || !frame) throw new Error('The interface frame was not created.');
-        previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.hidden = false; overlay.removeAttribute('inert'); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); showPhase(getSettings().systemAccepted ? 'main' : 'notification'); (globalThis.requestAnimationFrame || (callback => setTimeout(callback, 0)))(() => frame.focus());
+        const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel');
+        if (!overlay || !panel) throw new Error('The interface panel was not created.');
+        previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.hidden = false; overlay.removeAttribute('inert'); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); showPhase(getSettings().systemAccepted ? 'main' : 'notification'); (globalThis.requestAnimationFrame || (callback => setTimeout(callback, 0)))(() => panel.focus());
     } catch (error) {
         console.error('[The System] Could not open the interface.', error);
         notify('error', 'The System could not open. Reload SillyTavern and try again.');
