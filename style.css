@@ -35,18 +35,19 @@ body.sl-system-open { overflow: hidden; }
 .sl-system-ready-state { color: var(--sl-system-success); font-size: .7rem; }
 .sl-system-ready-state i { margin-right: .25rem; }
 
-.sl-system-overlay { position: fixed; z-index: 100000; inset: 0; display: grid; place-items: center; visibility: hidden; overflow: hidden; pointer-events: none; isolation: isolate; background: rgba(1, 5, 12, .78); opacity: 0; transition: opacity .28s ease, visibility .28s ease; }
-.sl-system-overlay::before { position: absolute; inset: -35%; content: ""; background: conic-gradient(from 140deg, transparent, rgba(var(--sl-system-accent-rgb), calc(var(--sl-system-glow) * .16)), transparent 24%, rgba(142, 156, 255, calc(var(--sl-system-glow) * .13)), transparent 55%); filter: blur(28px); animation: sl-system-ambient 12s linear infinite; pointer-events: none; }
-.sl-system-overlay::after { position: absolute; inset: 0; content: ""; opacity: .16; background: repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .06) 5px, transparent 6px); mix-blend-mode: screen; pointer-events: none; }
-.sl-system-overlay.is-open { visibility: visible; pointer-events: auto; opacity: 1; }
-.sl-system-overlay.is-declining .sl-system-frame { transform: scale(.84); opacity: 0; filter: blur(8px); }
-.sl-system-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: default; }
-.sl-system-frame { position: relative; z-index: 1; display: grid; width: min(1100px, calc(100vw - 42px)); height: min(780px, calc(100vh - 42px)); overflow: hidden; color: var(--sl-system-ink); background: linear-gradient(135deg, rgba(7, 24, 42, var(--sl-system-glass)), rgba(3, 10, 20, .97)); border: 1px solid rgba(var(--sl-system-accent-rgb), .55); box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset, 0 0 48px rgba(var(--sl-system-accent-rgb), calc(var(--sl-system-glow) * .25)), 0 28px 90px rgba(0, 0, 0, .55); clip-path: polygon(0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px)); transform: scale(.96) translateY(8px); opacity: 0; transition: transform .34s cubic-bezier(.2, .8, .2, 1), opacity .28s ease, filter .34s ease; }
-.sl-system-overlay.is-open .sl-system-frame { transform: scale(1) translateY(0); opacity: 1; }
-.sl-system-frame::before { position: absolute; inset: 12px; content: ""; border: 1px solid rgba(var(--sl-system-accent-rgb), .11); pointer-events: none; }
+.sl-system-overlay { position: fixed; inset: 0; z-index: 5000; display: grid; justify-items: end; visibility: hidden; pointer-events: none; color: var(--sl-system-ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.sl-system-overlay.is-open { visibility: visible; pointer-events: auto; }
+.sl-system-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: radial-gradient(circle at 78% 45%, rgba(var(--sl-system-accent-rgb), .13), transparent 38%), rgba(0, 0, 0, .76); opacity: 0; backdrop-filter: blur(2px); transition: opacity .26s ease; }
+.sl-system-overlay.is-open .sl-system-backdrop { opacity: 1; }
+.sl-system-panel { position: relative; isolation: isolate; width: min(1160px, calc(100vw - 52px)); height: calc(100dvh - 32px); margin: 16px; overflow: hidden; outline: none; color: var(--sl-system-ink); background: linear-gradient(115deg, rgba(var(--sl-system-accent-rgb), .07), transparent 22%), repeating-linear-gradient(135deg, transparent 0 42px, rgba(255, 255, 255, .009) 43px), linear-gradient(rgba(4, 16, 29, var(--sl-system-glass)), rgba(3, 10, 20, .985)); border: 1px solid rgba(var(--sl-system-accent-rgb), .42); border-radius: 5px; box-shadow: -28px 0 76px rgba(0, 0, 0, .65), inset 0 0 0 1px rgba(255, 255, 255, .025), inset 0 0 90px rgba(0, 0, 0, .35); transform: translateX(calc(100% + 32px)); opacity: .35; transition: transform .36s cubic-bezier(.18, .82, .2, 1), opacity .24s ease, filter .34s ease; }
+.sl-system-overlay.is-open .sl-system-panel { transform: translateX(0); opacity: 1; }
+.sl-system-overlay.is-declining .sl-system-panel { transform: translateX(calc(100% + 32px)); opacity: 0; filter: blur(6px); }
+.sl-system-panel::before, .sl-system-panel::after { position: absolute; z-index: 8; width: 58px; height: 58px; content: ""; pointer-events: none; opacity: .66; }
+.sl-system-panel::before { inset: 6px auto auto 6px; border-top: 1px solid var(--sl-system-accent); border-left: 1px solid var(--sl-system-accent); }
+.sl-system-panel::after { inset: auto 6px 6px auto; border-right: 1px solid var(--sl-system-accent); border-bottom: 1px solid var(--sl-system-accent); }
 .sl-system-phase[hidden] { display: none !important; }
 
-.sl-system-notification, .sl-system-acknowledgement { min-height: 100%; padding: clamp(1rem, 4vw, 3rem); }
+.sl-system-notification, .sl-system-acknowledgement { height: 100%; min-height: 100%; padding: clamp(1rem, 4vw, 3rem); }
 .sl-system-notification-frame { display: grid; grid-template-columns: 42px 76px minmax(0, 1fr); align-items: center; min-height: 100%; background: linear-gradient(125deg, rgba(10, 27, 47, .78), rgba(2, 12, 25, .78)); border: 1px solid rgba(var(--sl-system-accent-rgb), .5); box-shadow: inset 0 0 48px rgba(var(--sl-system-accent-rgb), .08); }
 .sl-system-vertical-label { display: grid; place-items: center; align-self: stretch; padding: .6rem .2rem; color: var(--sl-system-accent); border-right: 1px solid var(--sl-system-line); font-size: .56rem; font-weight: 700; letter-spacing: .23em; writing-mode: vertical-rl; transform: rotate(180deg); }
 .sl-system-notification-icon { display: grid; place-items: center; width: 3.2rem; height: 3.2rem; margin: 0 auto; color: var(--sl-system-accent); border: 1px solid var(--sl-system-line); background: rgba(var(--sl-system-accent-rgb), .06); box-shadow: 0 0 24px rgba(var(--sl-system-accent-rgb), calc(var(--sl-system-glow) * .35)); font-size: 1.6rem; }
@@ -64,7 +65,7 @@ body.sl-system-open { overflow: hidden; }
 .sl-system-acknowledgement .sl-system-notification-copy { animation: sl-system-acknowledge 1.4s ease both; }
 .sl-system-ack-small { margin-top: 1.8rem; color: var(--sl-system-muted) !important; font-size: .7rem !important; letter-spacing: .12em; text-transform: uppercase; }
 
-.sl-system-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 100%; }
+.sl-system-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; min-height: 100%; }
 .sl-system-main-header { display: flex; align-items: center; gap: .75rem; min-height: 76px; padding: .8rem 1.2rem; background: rgba(3, 12, 23, .68); border-bottom: 1px solid var(--sl-system-line-soft); }
 .sl-system-main-brand { display: flex; align-items: center; gap: .65rem; min-width: 0; margin-right: auto; }
 .sl-system-sys-mark { width: 2.75rem; height: 2.75rem; box-shadow: 0 0 24px rgba(var(--sl-system-accent-rgb), .16); }
@@ -140,8 +141,11 @@ body.sl-system-open { overflow: hidden; }
 @keyframes sl-system-acknowledge { 0% { opacity: 0; transform: scale(.9); filter: blur(8px); } 50% { opacity: 1; filter: blur(0); } 100% { transform: scale(1); } }
 
 @media (max-width: 760px) {
-    .sl-system-frame { width: 100%; height: 100%; border: 0; clip-path: none; }
-    .sl-system-frame::before { inset: 7px; }
+    .sl-system-overlay { justify-items: stretch; }
+    .sl-system-panel { width: 100vw; height: 100dvh; margin: 0; border: 0; border-radius: 0; transform: translateY(100%); }
+    .sl-system-overlay.is-open .sl-system-panel { transform: translateY(0); }
+    .sl-system-overlay.is-declining .sl-system-panel { transform: translateY(100%); }
+    .sl-system-panel::before, .sl-system-panel::after { display: none; }
     .sl-system-workspace { display: block; overflow: auto; }
     .sl-system-nav { display: grid; grid-template-columns: 1fr; gap: .32rem; padding: .65rem .75rem; border-right: 0; border-bottom: 1px solid var(--sl-system-line-soft); }
     .sl-system-tab { min-height: 38px; justify-content: flex-start; }
@@ -177,5 +181,5 @@ body.sl-system-open { overflow: hidden; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .sl-system-overlay::before, .sl-system-frame, .sl-system-tab-panel, .sl-system-acknowledgement .sl-system-notification-copy { animation: none; transition: none; }
+    .sl-system-panel, .sl-system-tab-panel, .sl-system-acknowledgement .sl-system-notification-copy { animation: none; transition: none; }
 }
