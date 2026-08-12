@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.4.0';
+const UI_VERSION = '0.5.0';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -13,6 +13,8 @@ const DEFAULT_SETTINGS = Object.freeze({
     autoTrack: true,
     injectState: true,
     accentColor: '#35bfff',
+    backgroundColor: '#030e1c',
+    particleColor: '#6dd8ff',
     glassOpacity: 90,
     glowStrength: 58,
     notificationPosition: 'top-center',
@@ -35,12 +37,18 @@ const EQUIPMENT_SLOTS = [
 
 const DEFAULT_STATE = Object.freeze({
     accepted: false,
+    administratorMode: false,
     profile: { image: '', positionX: 50, positionY: 50, zoom: 1 },
     player: {
         name: 'System User', title: 'Unawakened Hunter', titles: [], job: 'None', level: 1, rank: 'E',
         experience: 0, experienceRequired: 100, hp: 100, maxHp: 100, mp: 50, maxMp: 50,
-        fatigue: 0, condition: 'Stable', statPoints: 0, gold: 1000,
+        fatigue: 0, condition: 'Stable', statPoints: 0,
         stats: { strength: 10, agility: 10, vitality: 10, intelligence: 10, perception: 10 },
+    },
+    currency: { name: 'System Credit', symbol: 'SC', amount: 1000 },
+    scene: {
+        date: 'Unknown', day: 'Unknown', dayCount: 1, year: 'Unknown', time: 'Unknown', period: 'Unknown',
+        place: 'Unknown', location: 'Unknown', position: 'Unknown', temperature: 'Unknown', weather: 'Unknown', season: 'Unknown',
     },
     skills: [], quests: [], inventory: [],
     equipment: { weapon: null, head: null, chest: null, hands: null, legs: null, feet: null, accessory: null },
@@ -62,6 +70,7 @@ let selectedItemId = '';
 let imageEditorTarget = null;
 let imageEditorDraft = null;
 let shopGenerating = false;
+let imageGesture = null;
 
 function context() { return globalThis.SillyTavern?.getContext?.() || {}; }
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -86,7 +95,7 @@ function getSettings() {
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) if (settings[key] === undefined) settings[key] = value;
     settings.glassOpacity = number(settings.glassOpacity, DEFAULT_SETTINGS.glassOpacity, 55, 98);
     settings.glowStrength = number(settings.glowStrength, DEFAULT_SETTINGS.glowStrength, 0, 100);
-    if (!/^#[0-9a-f]{6}$/i.test(settings.accentColor)) settings.accentColor = DEFAULT_SETTINGS.accentColor;
+    for (const key of ['accentColor', 'backgroundColor', 'particleColor']) if (!/^#[0-9a-f]{6}$/i.test(settings[key])) settings[key] = DEFAULT_SETTINGS[key];
     if (!['top-center', 'top-left', 'top-right', 'bottom-center'].includes(settings.notificationPosition)) settings.notificationPosition = DEFAULT_SETTINGS.notificationPosition;
     return settings;
 }
@@ -98,8 +107,14 @@ function applyAppearance() {
     const root = document.documentElement;
     root.style.setProperty('--sl-system-accent', settings.accentColor);
     root.style.setProperty('--sl-system-accent-rgb', hexToRgb(settings.accentColor));
+    root.style.setProperty('--sl-system-background', settings.backgroundColor);
+    root.style.setProperty('--sl-system-background-rgb', hexToRgb(settings.backgroundColor));
+    root.style.setProperty('--sl-system-particle', settings.particleColor);
+    root.style.setProperty('--sl-system-particle-rgb', hexToRgb(settings.particleColor));
     root.style.setProperty('--sl-system-glass', String(settings.glassOpacity / 100));
     root.style.setProperty('--sl-system-glow', String(settings.glowStrength / 100));
+    root.style.setProperty('--sl-system-glow-size', `${Math.round(48 * settings.glowStrength / 100)}px`);
+    root.style.setProperty('--sl-system-particle-opacity', String(.22 + (settings.glowStrength / 100) * .52));
     document.getElementById('sl-system-island')?.setAttribute('data-position', settings.notificationPosition);
 }
 
@@ -146,6 +161,24 @@ function normalizeQuest(source = {}) {
         description: text(source.description, 'No objective details recorded.', 1000),
         progress: number(source.progress, 0, 0, 999999), goal: number(source.goal, 1, 1, 999999),
         rewards: text(source.rewards, 'Unknown reward', 300),
+        daily: Boolean(source.daily || String(source.type).toLowerCase().includes('daily')),
+        deadline: text(source.deadline, 'Before the daily reset', 120),
+        penalty: source.penalty && typeof source.penalty === 'object' ? {
+            hp: number(source.penalty.hp, 0, 0, 999999), mp: number(source.penalty.mp, 0, 0, 999999),
+            currency: number(source.penalty.currency, 0, 0, 999999999), experience: number(source.penalty.experience, 0, 0, 999999999),
+            description: text(source.penalty.description, 'No penalty registered.', 300),
+        } : { hp: 0, mp: 0, currency: 0, experience: 0, description: 'No penalty registered.' },
+        penaltyApplied: Boolean(source.penaltyApplied),
+    };
+}
+
+function normalizeScene(source = {}) {
+    const defaults = DEFAULT_STATE.scene;
+    return {
+        date: text(source.date, defaults.date, 80), day: text(source.day, defaults.day, 80), dayCount: number(source.dayCount, defaults.dayCount, 0, 999999),
+        year: text(source.year, defaults.year, 80), time: text(source.time, defaults.time, 80), period: text(source.period, defaults.period, 80),
+        place: text(source.place, defaults.place, 120), location: text(source.location, defaults.location, 160), position: text(source.position, defaults.position, 160),
+        temperature: text(source.temperature, defaults.temperature, 80), weather: text(source.weather, defaults.weather, 100), season: text(source.season, defaults.season, 100),
     };
 }
 
@@ -161,13 +194,19 @@ function normalizeSkill(source = {}) {
 function normalizeState(source = {}, fallback = DEFAULT_STATE) {
     const base = clone(fallback);
     base.accepted = Boolean(source.accepted);
+    base.administratorMode = Boolean(source.administratorMode);
     base.profile = normalizeImage(source.profile);
     const player = source.player && typeof source.player === 'object' ? source.player : {};
     base.player = { ...base.player, ...player, stats: { ...base.player.stats, ...(player.stats && typeof player.stats === 'object' ? player.stats : {}) } };
     if (base.player.stats.sense !== undefined && base.player.stats.perception === DEFAULT_STATE.player.stats.perception) base.player.stats.perception = base.player.stats.sense;
-    for (const key of ['level', 'experience', 'experienceRequired', 'hp', 'maxHp', 'mp', 'maxMp', 'fatigue', 'statPoints', 'gold']) base.player[key] = number(base.player[key], DEFAULT_STATE.player[key], 0, 999999999);
+    for (const key of ['level', 'experience', 'experienceRequired', 'hp', 'maxHp', 'mp', 'maxMp', 'fatigue', 'statPoints']) base.player[key] = number(base.player[key], DEFAULT_STATE.player[key], 0, 999999999);
     for (const key of ['rank', 'condition', 'name', 'title', 'job']) base.player[key] = text(base.player[key], DEFAULT_STATE.player[key], 100);
     base.player.titles = Array.isArray(player.titles) ? player.titles.map(value => text(value, '', 100)).filter(Boolean).slice(0, 100) : [];
+    const legacyGold = number(player.gold, DEFAULT_STATE.currency.amount, 0, 999999999);
+    const currency = source.currency && typeof source.currency === 'object' ? source.currency : {};
+    base.currency = { name: text(currency.name, DEFAULT_STATE.currency.name, 50), symbol: text(currency.symbol, DEFAULT_STATE.currency.symbol, 12), amount: number(currency.amount, legacyGold, 0, 999999999) };
+    delete base.player.gold;
+    base.scene = normalizeScene(source.scene);
     for (const stat of Object.keys(DEFAULT_STATE.player.stats)) base.player.stats[stat] = number(base.player.stats[stat], 10, 0, 999999);
     base.skills = Array.isArray(source.skills) ? source.skills.map(normalizeSkill).filter(Boolean).slice(0, 300) : [];
     base.quests = Array.isArray(source.quests) ? source.quests.map(normalizeQuest).filter(Boolean).slice(0, 300) : [];
@@ -186,11 +225,24 @@ function getState() {
     return saved && typeof saved === 'object' ? normalizeState(saved) : normalizeState();
 }
 
+function settleQuestPenalties(state) {
+    for (const quest of state.quests) {
+        const failed = ['failed', 'expired'].includes(String(quest.status).toLowerCase());
+        if (!quest.daily || !failed || quest.penaltyApplied) continue;
+        state.player.hp = Math.max(0, state.player.hp - quest.penalty.hp);
+        state.player.mp = Math.max(0, state.player.mp - quest.penalty.mp);
+        state.player.experience = Math.max(0, state.player.experience - quest.penalty.experience);
+        state.currency.amount = Math.max(0, state.currency.amount - quest.penalty.currency);
+        quest.penaltyApplied = true;
+    }
+    return state;
+}
+
 async function persistState(nextState, source = 'ui-action', options = {}) {
     const currentContext = context();
     if (!currentContext.getCurrentChatId?.()) { systemNotice('warning', 'Open a chat before changing The System.'); return false; }
     const previous = getState();
-    const next = normalizeState(nextState, previous);
+    const next = settleQuestPenalties(normalizeState(nextState, previous));
     next.updatedAt = new Date().toISOString(); next.updateSource = source;
     currentContext.chatMetadata ||= {}; currentContext.chatMetadata[METADATA_KEY] = next;
     updatePrompt(next); renderAll(); await currentContext.saveMetadata?.();
@@ -210,7 +262,7 @@ function stateForPrompt(state) {
     return {
         player: state.player, skills: state.skills, quests: state.quests,
         inventory: state.inventory.map(({ icon, ...item }) => item), equipment: state.equipment,
-        shop: state.shop.map(({ icon, ...item }) => item), pendingActions: state.pendingActions,
+        shop: state.shop.map(({ icon, ...item }) => item), currency: state.currency, scene: state.scene, pendingActions: state.pendingActions,
     };
 }
 
@@ -219,9 +271,11 @@ function patchInstructions() {
         'After the normal role-play reply, append one invisible HTML comment when any System state changed:',
         '<!--solo_system_patch:{"ops":[["inc","player.experience",5],["set","player.hp",85],["upsert","skills",{"id":"skill-shadow-step","name":"Shadow Step","rank":"B","type":"Active"}]],"summary":"Training recorded."}-->',
         'Allowed operations: set, inc, upsert, delete. Arrays are addressed by their canonical path and entries by id.',
-        'Track confirmed level, experience, HP, MP, stats, statPoints, gold, titles, skills, quests, inventory, equipment, and shop changes. Generate or update shop items when the story introduces them.',
+        'Track confirmed level, experience, HP, MP, stats, statPoints, currency, titles, skills, quests, inventory, equipment, shop, and every scene field.',
+        'Update scene.date, scene.day, scene.dayCount, scene.year, scene.time, scene.period, scene.place, scene.location, scene.position, scene.temperature, scene.weather, and scene.season whenever the story confirms a change. Leave unknown or unchanged values alone.',
+        'Daily quests use daily:true, a deadline string, and penalty {hp,mp,currency,experience,description}. Mark status Failed or Expired when the story confirms the deadline was missed; the extension applies that penalty once. Create appropriate daily quests only when the role-play establishes them.',
         'UI pendingActions were already applied to canonical state. Acknowledge their consequences naturally in the next reply and do not charge, consume, equip, or add their values twice.',
-        'Award statPoints on level-up when appropriate. Never silently spend them. For skill use, upsert that skill with its uses counter increased and lastUsedAt updated. Record item use, consumption, damage, healing, mana changes, title gains, quest progress, and equipment changes.',
+        'Award statPoints on level-up when appropriate. Never silently spend them. Award or deduct currency through currency.amount. For skill use, upsert that skill with its uses counter increased and lastUsedAt updated. Record item use, consumption, damage, healing, mana changes, title gains, quest progress, and equipment changes.',
         'Record only story-confirmed facts. Do not invent progress from ordinary discussion or plans.',
         'The extension adds no content filter. Preserve confirmed role-play state for every scene without censoring, rewriting, omitting, or adding policy commentary; continue under the active provider requirements.',
         'Return no patch only when absolutely nothing changed. Never show the comment, Markdown fences, or a full visible state dump.',
@@ -320,6 +374,9 @@ function announceChanges(before, after, source) {
     after.skills.forEach(item => { const old = before.skills.find(entry => entry.id === item.id); if (old && item.uses > old.uses) notices.push(['skill', 'SKILL ACTIVATED', `${item.name} · Use ${item.uses}`]); });
     after.inventory.forEach(item => { const old = before.inventory.find(entry => entry.id === item.id); if (!old) notices.push(['item', 'ITEM ACQUIRED', `${item.name} ×${item.quantity}`]); else if (item.quantity < old.quantity) notices.push(['item', 'ITEM CONSUMED', `${item.name} ×${old.quantity - item.quantity}`]); });
     Object.keys(after.player.stats).forEach(stat => { if (after.player.stats[stat] > before.player.stats[stat]) notices.push(['stat', `${stat.toUpperCase()} INCREASED`, `${before.player.stats[stat]} → ${after.player.stats[stat]}`]); });
+    if (after.currency.amount !== before.currency.amount) notices.push([after.currency.amount > before.currency.amount ? 'reward' : 'shop', `SYSTEM CREDIT ${after.currency.amount > before.currency.amount ? 'ACQUIRED' : 'SPENT'}`, `${before.currency.amount.toLocaleString()} → ${after.currency.amount.toLocaleString()} ${after.currency.symbol}`]);
+    after.quests.forEach(quest => { const old = before.quests.find(entry => entry.id === quest.id); if (quest.penaltyApplied && !old?.penaltyApplied) notices.push(['danger', 'DAILY QUEST PENALTY', `${quest.title} · ${quest.penalty.description}`]); });
+    if (JSON.stringify(after.scene) !== JSON.stringify(before.scene)) notices.push(['scene', 'SCENE UPDATED', `${after.scene.place} · ${after.scene.time}`]);
     if (!notices.length && source === 'assistant-patch') notices.push(['sync', 'SYSTEM UPDATED', 'State synchronized with the latest reply']);
     notices.slice(0, 6).forEach(item => systemNotice(...item));
 }
@@ -342,19 +399,28 @@ function pageItems(items, page) { const pages = Math.max(1, Math.ceil(items.leng
 function pagination(page, pages, target) { if (pages <= 1) return ''; return `<nav class="sl-pagination"><button type="button" data-sl-page="${target}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button><span>PAGE <b>${page}</b> / ${pages}</span><button type="button" data-sl-page="${target}" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button></nav>`; }
 function tabButton(tab, active) { return `<button class="sl-system-tab${active ? ' is-active' : ''}" type="button" role="tab" data-sl-tab="${tab.id}" aria-selected="${active}" aria-controls="sl-system-panel-${tab.id}"><i class="${tab.icon}"></i><span>${html(tab.label)}</span></button>`; }
 
+function renderScene(scene) {
+    const entries = [
+        ['fa-calendar-days', 'DATE', scene.date], ['fa-hashtag', 'DAY', `${scene.day} · ${scene.dayCount}`], ['fa-hourglass-half', 'YEAR', scene.year],
+        ['fa-clock', 'TIME', `${scene.time} · ${scene.period}`], ['fa-landmark', 'PLACE', scene.place], ['fa-location-dot', 'LOCATION', scene.location],
+        ['fa-crosshairs', 'POSITION', scene.position], ['fa-temperature-half', 'TEMPERATURE', scene.temperature], ['fa-cloud-sun', 'WEATHER', scene.weather], ['fa-leaf', 'SEASON', scene.season],
+    ];
+    return `<section class="sl-scene-card"><header><div><span class="sl-system-eyebrow">LIVE WORLD READING</span><h4>Scene Tracking</h4></div><span class="sl-scene-live"><i></i> TRACKING</span></header><div class="sl-scene-grid">${entries.map(([icon, label, value]) => `<article><i class="fa-solid ${icon}"></i><span>${label}</span><b>${html(value)}</b></article>`).join('')}</div></section>`;
+}
+
 function renderStatus() {
     const state = getState(); const player = state.player; const name = context().name1 || player.name;
     const stats = [['strength', 'STR', 'Strength', 'fa-hand-fist'], ['agility', 'AGI', 'Agility', 'fa-person-running'], ['vitality', 'VIT', 'Vitality', 'fa-heart-pulse'], ['intelligence', 'INT', 'Intelligence', 'fa-brain'], ['perception', 'PER', 'Perception', 'fa-eye']];
     return `<section class="sl-player-dossier"><button class="sl-profile-avatar" type="button" data-sl-action="edit-profile">${imageFrame(state.profile, 'Profile', 'is-profile')}<span><i class="fa-solid fa-camera"></i> EDIT</span></button><div class="sl-player-identity"><span class="sl-system-eyebrow">PLAYER IDENTIFICATION</span><h3>${html(name)}</h3><p>${html(player.title)} <i></i> ${html(player.job)}</p><div class="sl-identity-tags"><span>RANK ${html(player.rank)}</span><span>${html(player.condition)}</span><span>LV. ${player.level}</span></div></div><div class="sl-level-core"><small>LEVEL</small><strong>${player.level}</strong><span>${html(player.rank)}-RANK</span></div></section>
     <section class="sl-vitals-deck"><div class="sl-dual-vitals"><article><header><span><i class="fa-solid fa-heart-pulse"></i> HP</span><b>${player.hp}<small> / ${player.maxHp}</small></b></header><div class="sl-neon-meter hp"><i style="width:${percent(player.hp, player.maxHp)}%"></i></div></article><article><header><span><i class="fa-solid fa-droplet"></i> MP</span><b>${player.mp}<small> / ${player.maxMp}</small></b></header><div class="sl-neon-meter mp"><i style="width:${percent(player.mp, player.maxMp)}%"></i></div></article></div></section>
     <section class="sl-exp-deck"><header><span><i class="fa-solid fa-arrow-trend-up"></i> EXPERIENCE</span><b>${player.experience} / ${player.experienceRequired} EXP</b></header><div class="sl-exp-track"><i style="width:${percent(player.experience, player.experienceRequired)}%"></i><b style="left:${percent(player.experience, player.experienceRequired)}%"></b></div><small>${Math.max(0, player.experienceRequired - player.experience)} EXP until next level</small></section>
-    <div class="sl-status-grid"><section class="sl-system-card sl-attributes-card"><header><div><span class="sl-system-eyebrow">ABILITY MATRIX</span><h4>Attributes</h4></div><div class="sl-stat-points"><span>AVAILABLE POINTS</span><b>${player.statPoints}</b></div></header><div class="sl-attribute-list">${stats.map(([key, short, label, icon]) => `<article><i class="fa-solid ${icon}"></i><span><b>${short}</b><small>${label}</small></span><strong>${player.stats[key]}</strong><button type="button" data-sl-upgrade="${key}" ${player.statPoints < 1 ? 'disabled' : ''}><i class="fa-solid fa-plus"></i></button></article>`).join('')}</div></section><section class="sl-system-card sl-record-card"><header><div><span class="sl-system-eyebrow">SYSTEM RECORD</span><h4>Current Data</h4></div></header><div class="sl-record-list"><article><i class="fa-solid fa-scroll"></i><span>Active Quests<small>Objectives under surveillance</small></span><b>${state.quests.filter(q => q.status.toLowerCase() === 'active').length}</b></article><article><i class="fa-solid fa-layer-group"></i><span>Acquired Skills<small>Registered abilities</small></span><b>${state.skills.length}</b></article><article><i class="fa-solid fa-box-open"></i><span>Stored Items<small>Total item types</small></span><b>${state.inventory.length}</b></article><article><i class="fa-solid fa-coins"></i><span>Gold Balance<small>System currency</small></span><b>${player.gold.toLocaleString()}</b></article></div></section></div>`;
+    <div class="sl-status-grid"><section class="sl-system-card sl-attributes-card"><header><div><span class="sl-system-eyebrow">ABILITY MATRIX</span><h4>Attributes</h4></div><div class="sl-stat-points"><span>AVAILABLE POINTS</span><b>${player.statPoints}</b></div></header><div class="sl-attribute-list">${stats.map(([key, short, label, icon]) => `<article><i class="fa-solid ${icon}"></i><span><b>${short}</b><small>${label}</small></span><strong>${player.stats[key]}</strong><button type="button" data-sl-upgrade="${key}" ${player.statPoints < 1 ? 'disabled' : ''}><i class="fa-solid fa-plus"></i></button></article>`).join('')}</div></section><section class="sl-system-card sl-record-card"><header><div><span class="sl-system-eyebrow">SYSTEM RECORD</span><h4>Current Data</h4></div></header><div class="sl-record-list"><article><i class="fa-solid fa-scroll"></i><span>Active Quests<small>Objectives under surveillance</small></span><b>${state.quests.filter(q => q.status.toLowerCase() === 'active').length}</b></article><article><i class="fa-solid fa-layer-group"></i><span>Acquired Skills<small>Registered abilities</small></span><b>${state.skills.length}</b></article><article><i class="fa-solid fa-box-open"></i><span>Stored Items<small>Total item types</small></span><b>${state.inventory.length}</b></article><article><i class="fa-solid fa-coins"></i><span>${html(state.currency.name)}<small>System Shop currency</small></span><b>${state.currency.amount.toLocaleString()} ${html(state.currency.symbol)}</b></article></div></section></div>${renderScene(state.scene)}`;
 }
 
 function renderQuest() {
-    const state = getState();
-    if (!state.quests.length) return `<section class="sl-module-heading"><div><span class="sl-system-eyebrow">OBJECTIVE ARCHIVE</span><h3>Quest</h3></div><strong>0 ACTIVE</strong></section><section class="sl-empty-module"><i class="fa-solid fa-scroll"></i><h4>No quest detected</h4><p>The System will register objectives generated by the main chat.</p></section>`;
-    return `<section class="sl-module-heading"><div><span class="sl-system-eyebrow">OBJECTIVE ARCHIVE</span><h3>Quest</h3></div><strong>${state.quests.filter(q => q.status.toLowerCase() === 'active').length} ACTIVE</strong></section><div class="sl-quest-list">${state.quests.map(quest => `<article class="sl-quest-card" data-status="${html(quest.status.toLowerCase())}"><div class="sl-quest-rank"><span>${html(quest.type)}</span><b>${html(quest.status)}</b></div><div><h4>${html(quest.title)}</h4><p>${html(quest.description)}</p><div class="sl-quest-progress"><i style="width:${percent(quest.progress, quest.goal)}%"></i></div><small>${quest.progress} / ${quest.goal} · Reward: ${html(quest.rewards)}</small></div></article>`).join('')}</div>`;
+    const state = getState(); const daily = state.quests.filter(quest => quest.daily); const standard = state.quests.filter(quest => !quest.daily);
+    const card = quest => `<article class="sl-quest-card${quest.daily ? ' is-daily' : ''}" data-status="${html(quest.status.toLowerCase())}"><div class="sl-quest-rank"><span>${quest.daily ? 'DAILY QUEST' : html(quest.type)}</span><b>${html(quest.status)}</b></div><div><h4>${html(quest.title)}</h4><p>${html(quest.description)}</p><div class="sl-quest-progress"><i style="width:${percent(quest.progress, quest.goal)}%"></i></div><small>${quest.progress} / ${quest.goal} · Reward: ${html(quest.rewards)}</small>${quest.daily ? `<div class="sl-penalty-line"><i class="fa-solid fa-triangle-exclamation"></i><span><b>DEADLINE</b> ${html(quest.deadline)}<br><b>PENALTY</b> ${html(quest.penalty.description)}</span></div>` : ''}</div></article>`;
+    return `<section class="sl-module-heading"><div><span class="sl-system-eyebrow">OBJECTIVE ARCHIVE</span><h3>Quest</h3></div><strong>${state.quests.filter(q => q.status.toLowerCase() === 'active').length} ACTIVE</strong></section><section class="sl-daily-header"><div><i class="fa-solid fa-clock"></i><span><b>DAILY QUEST PROTOCOL</b><small>Failure or expiry applies the registered penalty once.</small></span></div><strong>${daily.length} REGISTERED</strong></section>${daily.length ? `<div class="sl-quest-list">${daily.map(card).join('')}</div>` : '<section class="sl-empty-daily"><i class="fa-solid fa-calendar-check"></i><span><b>No daily quest assigned</b><small>The AI can assign daily training or survival objectives from the main chat.</small></span></section>'}${standard.length ? `<h4 class="sl-section-label">STORY & SIDE QUESTS</h4><div class="sl-quest-list">${standard.map(card).join('')}</div>` : (!daily.length ? '<section class="sl-empty-module"><i class="fa-solid fa-scroll"></i><h4>No quest detected</h4><p>The System will register objectives generated by the main chat.</p></section>' : '')}`;
 }
 
 function renderInventory() {
@@ -370,11 +436,11 @@ function renderEquipment() {
 
 function renderShop() {
     const state = getState(); const paged = pageItems(state.shop, shopPage); shopPage = paged.page;
-    return `<section class="sl-module-heading"><div><span class="sl-system-eyebrow">AUTHORIZED EXCHANGE</span><h3>System Shop</h3></div><strong><i class="fa-solid fa-coins"></i> ${state.player.gold.toLocaleString()}</strong></section><section class="sl-shop-console"><form id="sl-shop-search"><label><i class="fa-solid fa-magnifying-glass"></i><input id="sl-shop-query" type="text" maxlength="160" placeholder="Search for an item to generate…"></label><button type="submit" ${shopGenerating ? 'disabled' : ''}>${shopGenerating ? '<i class="fa-solid fa-spinner fa-spin"></i>' : '<i class="fa-solid fa-wand-magic-sparkles"></i>'} SEARCH</button></form><button type="button" data-sl-action="refill-shop" ${shopGenerating ? 'disabled' : ''}><i class="fa-solid fa-rotate"></i> REFILL RANDOM ITEMS</button><small>Uses your active SillyTavern provider and model. No separate API key.</small></section>${state.shop.length ? `<div class="sl-shop-grid">${paged.items.map(item => `<article class="sl-shop-item">${imageFrame(item.icon, item.category)}<span class="sl-shop-rarity">${html(item.rarity)}</span><h4>${html(item.name)}</h4><p>${html(item.description)}</p><footer><b><i class="fa-solid fa-coins"></i> ${item.price.toLocaleString()}</b><button type="button" data-sl-buy="${html(item.id)}" ${state.player.gold < item.price ? 'disabled' : ''}>BUY</button></footer></article>`).join('')}</div>${pagination(paged.page, paged.pages, 'shop')}` : '<section class="sl-empty-module is-shop"><i class="fa-solid fa-cart-shopping"></i><h4>Shop inventory unavailable</h4><p>Refill the shop or search for a specific item.</p></section>'}`;
+    return `<section class="sl-module-heading"><div><span class="sl-system-eyebrow">AUTHORIZED EXCHANGE</span><h3>System Shop</h3></div><strong><i class="fa-solid fa-coins"></i> ${state.currency.amount.toLocaleString()} ${html(state.currency.symbol)}</strong></section><section class="sl-shop-console"><form id="sl-shop-search"><label><i class="fa-solid fa-magnifying-glass"></i><input id="sl-shop-query" type="text" maxlength="160" placeholder="Search for an item to generate…"></label><button type="submit" ${shopGenerating ? 'disabled' : ''}>${shopGenerating ? '<i class="fa-solid fa-spinner fa-spin"></i>' : '<i class="fa-solid fa-wand-magic-sparkles"></i>'} SEARCH</button></form><button type="button" data-sl-action="refill-shop" ${shopGenerating ? 'disabled' : ''}><i class="fa-solid fa-rotate"></i> REFILL RANDOM ITEMS</button><small>Uses your active SillyTavern provider and model. Purchases use ${html(state.currency.name)} (${html(state.currency.symbol)}).</small></section>${state.shop.length ? `<div class="sl-shop-grid">${paged.items.map(item => `<article class="sl-shop-item">${imageFrame(item.icon, item.category)}<span class="sl-shop-rarity">${html(item.rarity)}</span><h4>${html(item.name)}</h4><p>${html(item.description)}</p><footer><b><i class="fa-solid fa-coins"></i> ${item.price.toLocaleString()} ${html(state.currency.symbol)}</b><button type="button" data-sl-buy="${html(item.id)}" ${state.currency.amount < item.price ? 'disabled' : ''}>BUY</button></footer></article>`).join('')}</div>${pagination(paged.page, paged.pages, 'shop')}` : '<section class="sl-empty-module is-shop"><i class="fa-solid fa-cart-shopping"></i><h4>Shop inventory unavailable</h4><p>Refill the shop or search for a specific item.</p></section>'}`;
 }
 
 function renderActivePanel() { const panel = document.getElementById(`sl-system-panel-${activeTab}`); if (!panel) return; const renderers = { status: renderStatus, quest: renderQuest, inventory: renderInventory, equipment: renderEquipment, shop: renderShop }; panel.innerHTML = renderers[activeTab]?.() || ''; }
-function renderAll() { renderActivePanel(); updatePendingBadge(); }
+function renderAll() { renderActivePanel(); updatePendingBadge(); updateAdministratorBadge(); }
 
 function activateTab(tabId) {
     if (!TABS.some(tab => tab.id === tabId)) return; activeTab = tabId;
@@ -383,15 +449,17 @@ function activateTab(tabId) {
 }
 
 function updatePendingBadge() { const badge = document.getElementById('sl-pending-actions'); const count = getState().pendingActions.length; if (badge) { badge.textContent = `${count} PENDING ACTION${count === 1 ? '' : 'S'}`; badge.dataset.active = String(count > 0); } }
+function updateAdministratorBadge() { const button = document.querySelector('[data-sl-action="open-admin"]'); if (button) { button.classList.toggle('is-active', getState().administratorMode); button.title = getState().administratorMode ? 'Administrator Mode enabled' : 'Open Administrator Mode'; } }
+function particleMarkup() { return `<div class="sl-system-particles" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<i style="--n:${index};--x:${(index * 37) % 100};--d:${9 + (index % 7) * 2};--s:${1 + (index % 3)}"></i>`).join('')}</div>`; }
 
 function buildInterface() {
     const existing = document.getElementById('sl-system-overlay'); if (existing?.dataset.slUiVersion === UI_VERSION && existing.querySelector('#sl-system-panel')) return; existing?.remove();
     const overlay = document.createElement('div'); overlay.id = 'sl-system-overlay'; overlay.className = 'sl-system-overlay'; overlay.dataset.slUiVersion = UI_VERSION; overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-panel" class="sl-system-panel" role="dialog" aria-modal="true" aria-labelledby="sl-system-title" tabindex="-1">
+    overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-panel" class="sl-system-panel" role="dialog" aria-modal="true" aria-labelledby="sl-system-title" tabindex="-1">${particleMarkup()}
       <div id="sl-system-notification" class="sl-system-phase sl-system-onboarding" hidden><div class="sl-onboarding-grid"><aside><span>QUEST</span><b>?</b><small>PLAYER AUTHORIZATION</small></aside><main><div class="sl-onboarding-alert"><i class="fa-solid fa-triangle-exclamation"></i><span>URGENT QUEST</span></div><p class="sl-system-eyebrow">SYSTEM ACCESS REQUEST</p><h2>Will you accept<br><em>The System?</em></h2><blockquote>“Your heart will stop in 0.02 seconds if you choose not to accept.”</blockquote><p>Authorization transforms this chat into an independent Player record. All progress remains bound to this chat.</p><div class="sl-system-choice-row"><button type="button" data-sl-action="accept"><b>ACCEPT</b><span>Become a Player</span></button><button type="button" data-sl-action="decline"><b>DECLINE</b><span>Return to chat</span></button></div></main></div></div>
       <div id="sl-system-acknowledgement" class="sl-system-phase sl-system-acknowledgement" hidden><div class="sl-ack-core"><i class="fa-solid fa-diamond"></i><span class="sl-system-eyebrow">AUTHORIZATION COMPLETE</span><h2>WELCOME, PLAYER.</h2><p>This chat is now connected to The System.</p><div><i></i></div></div></div>
-      <div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><div class="sl-system-main-brand"><span class="sl-system-sys-mark"><i class="fa-solid fa-diamond"></i></span><div><span class="sl-system-eyebrow">PLAYER INTERFACE</span><h2 id="sl-system-title">THE SYSTEM</h2></div></div><span id="sl-pending-actions" class="sl-pending-actions">0 PENDING ACTIONS</span><div class="sl-system-main-state"><i></i> ONLINE</div><button class="sl-system-close" type="button" data-sl-action="close"><i class="fa-solid fa-xmark"></i></button></header><nav class="sl-system-nav" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main><footer class="sl-system-main-footer"><span><i class="fa-solid fa-link"></i> PER-CHAT RECORD</span><button type="button" data-sl-action="sync"><i class="fa-solid fa-rotate"></i> SYNC LATEST TURN</button><span>v${UI_VERSION}</span></footer></div>
-      <div id="sl-item-modal" class="sl-submodal" hidden></div><div id="sl-image-editor" class="sl-submodal" hidden></div>
+      <div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><div class="sl-system-main-brand"><span class="sl-system-sys-mark"><i class="fa-solid fa-diamond"></i></span><div><span class="sl-system-eyebrow">PLAYER INTERFACE</span><h2 id="sl-system-title">THE SYSTEM</h2></div></div><span id="sl-pending-actions" class="sl-pending-actions">0 PENDING ACTIONS</span><div class="sl-system-main-state"><i></i> ONLINE</div><div class="sl-header-tools"><button type="button" data-sl-action="open-guide" title="System Guide"><i class="fa-solid fa-circle-question"></i></button><button type="button" data-sl-action="open-admin" title="Administrator Mode"><i class="fa-solid fa-user-shield"></i></button></div><button class="sl-system-close" type="button" data-sl-action="close"><i class="fa-solid fa-xmark"></i></button></header><nav class="sl-system-nav" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main><footer class="sl-system-main-footer"><span><i class="fa-solid fa-link"></i> PER-CHAT RECORD</span><button type="button" data-sl-action="open-guide"><i class="fa-solid fa-book-open"></i> GUIDE</button><button type="button" data-sl-action="sync"><i class="fa-solid fa-rotate"></i> SYNC LATEST TURN</button><span>v${UI_VERSION}</span></footer></div>
+      <div id="sl-item-modal" class="sl-submodal" hidden></div><div id="sl-image-editor" class="sl-submodal" hidden></div><div id="sl-guide-modal" class="sl-submodal" hidden></div><div id="sl-admin-modal" class="sl-submodal" hidden></div>
     </section>`;
     document.body.appendChild(overlay); overlay.querySelector('.sl-system-backdrop')?.addEventListener('click', closeInterface); overlay.querySelectorAll('[data-sl-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.slTab))); overlay.addEventListener('click', handleInterfaceClick); overlay.addEventListener('submit', handleInterfaceSubmit); overlay.addEventListener('input', handleInterfaceInput); applyAppearance(); renderAll();
 }
@@ -424,7 +492,7 @@ async function useItem(itemId) {
     queueAction(state, 'use-item', `Used ${item.name}`, { itemId: item.id, effects: item.effects }); await persistState(state, 'ui-use-item'); closeSubmodals(); systemNotice('item', 'ITEM USED', item.name);
 }
 
-async function buyItem(itemId) { const state = getState(); const item = state.shop.find(entry => entry.id === itemId); if (!item || state.player.gold < item.price) return; state.player.gold -= item.price; const existing = state.inventory.find(entry => entry.name.toLowerCase() === item.name.toLowerCase()); if (existing) existing.quantity += 1; else state.inventory.push({ ...clone(item), id: uid('item'), quantity: 1 }); queueAction(state, 'shop-purchase', `Purchased ${item.name} for ${item.price} gold`, { shopItemId: item.id, price: item.price }); await persistState(state, 'ui-shop-purchase'); systemNotice('item', 'PURCHASE COMPLETE', `${item.name} · ${item.price} gold`); }
+async function buyItem(itemId) { const state = getState(); const item = state.shop.find(entry => entry.id === itemId); if (!item || state.currency.amount < item.price) return; state.currency.amount -= item.price; const existing = state.inventory.find(entry => entry.name.toLowerCase() === item.name.toLowerCase()); if (existing) existing.quantity += 1; else state.inventory.push({ ...clone(item), id: uid('item'), quantity: 1 }); queueAction(state, 'shop-purchase', `Purchased ${item.name} for ${item.price} ${state.currency.symbol}`, { shopItemId: item.id, price: item.price, currency: state.currency.symbol }); await persistState(state, 'ui-shop-purchase'); systemNotice('item', 'PURCHASE COMPLETE', `${item.name} · ${item.price} ${state.currency.symbol}`); }
 
 function shopPrompt(query = '') { const request = query ? `Generate exactly one item matching this request: ${query}` : 'Generate 8 varied random items appropriate for the current story and player level.'; return `${request}\nReturn only JSON: {"items":[{"id":"unique-id","name":"...","category":"Weapon|Gear|Potion|Material|Consumable|Misc","rarity":"Common|Uncommon|Rare|Epic|Legendary","quantity":1,"description":"...","price":100,"slot":"weapon|head|chest|hands|legs|feet|accessory|","usable":false,"effects":{"hp":0,"mp":0,"description":"..."}}]}.\nPlayer/state context: ${JSON.stringify(stateForPrompt(getState()))}\nKeep it coherent with Solo Leveling-style progression and the active role-play. No Markdown.`; }
 
@@ -438,23 +506,78 @@ async function generateShop(query = '') {
 function showItemModal(itemId) {
     const state = getState(); const item = state.inventory.find(entry => entry.id === itemId) || state.shop.find(entry => entry.id === itemId); if (!item) return; selectedItemId = item.id; const modal = document.getElementById('sl-item-modal'); if (!modal) return;
     const equippedSlot = Object.keys(state.equipment).find(slot => state.equipment[slot] === item.id); const canEquip = Boolean(item.slot || inferSlot(item.category)); const owned = state.inventory.some(entry => entry.id === item.id);
-    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet"><header><span>ITEM INFORMATION</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-item-sheet-hero">${imageFrame(item.icon, item.category, 'is-large')}<div><span>${html(item.rarity)} · ${html(item.category)}</span><h3>${html(item.name)}</h3><p>Quantity: ${item.quantity}</p></div></div><section><h4>DESCRIPTION</h4><p>${html(item.description)}</p></section><section><h4>EFFECT</h4><p>${html(item.effects.description || `${item.effects.hp ? `HP ${item.effects.hp > 0 ? '+' : ''}${item.effects.hp}` : ''}${item.effects.hp && item.effects.mp ? ' · ' : ''}${item.effects.mp ? `MP ${item.effects.mp > 0 ? '+' : ''}${item.effects.mp}` : ''}` || 'No registered effect.')}</p></section><footer>${owned ? `<button type="button" data-sl-action="edit-item-image"><i class="fa-solid fa-image"></i> IMAGE</button>${item.usable ? '<button type="button" data-sl-action="use-item">USE</button>' : ''}${equippedSlot ? `<button type="button" data-sl-unequip="${html(equippedSlot)}">UNEQUIP</button>` : canEquip ? '<button type="button" data-sl-action="equip-item">EQUIP</button>' : ''}` : `<button type="button" data-sl-buy="${html(item.id)}" ${state.player.gold < item.price ? 'disabled' : ''}>BUY · ${item.price}</button>`}</footer></article>`; modal.hidden = false;
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet"><header><span>ITEM INFORMATION</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-item-sheet-hero">${imageFrame(item.icon, item.category, 'is-large')}<div><span>${html(item.rarity)} · ${html(item.category)}</span><h3>${html(item.name)}</h3><p>Quantity: ${item.quantity}</p></div></div><section><h4>DESCRIPTION</h4><p>${html(item.description)}</p></section><section><h4>EFFECT</h4><p>${html(item.effects.description || `${item.effects.hp ? `HP ${item.effects.hp > 0 ? '+' : ''}${item.effects.hp}` : ''}${item.effects.hp && item.effects.mp ? ' · ' : ''}${item.effects.mp ? `MP ${item.effects.mp > 0 ? '+' : ''}${item.effects.mp}` : ''}` || 'No registered effect.')}</p></section><footer>${owned ? `<button type="button" data-sl-action="edit-item-image"><i class="fa-solid fa-image"></i> IMAGE</button>${item.usable ? '<button type="button" data-sl-action="use-item">USE</button>' : ''}${equippedSlot ? `<button type="button" data-sl-unequip="${html(equippedSlot)}">UNEQUIP</button>` : canEquip ? '<button type="button" data-sl-action="equip-item">EQUIP</button>' : ''}` : `<button type="button" data-sl-buy="${html(item.id)}" ${state.currency.amount < item.price ? 'disabled' : ''}>BUY · ${item.price} ${html(state.currency.symbol)}</button>`}</footer></article>`; modal.hidden = false;
+}
+
+function openGuide() {
+    const modal = document.getElementById('sl-guide-modal'); if (!modal) return;
+    const sections = [
+        ['fa-link', 'Per-chat records', 'Accept or decline separately in every chat. The profile, scene, progress, items, equipment, quests, shop, credits, and actions never transfer to another chat.'],
+        ['fa-arrow-trend-up', 'EXP and levels', 'EXP is awarded only when the story confirms meaningful combat, training, quest progress, or another achievement. The AI updates EXP after its reply; Sync Latest Turn can re-check the newest turn.'],
+        ['fa-chart-simple', 'Stats and stat points', 'Level-ups and appropriate rewards can grant stat points. Spend them with the + buttons in Status. A queued action tells the next reply what you changed without adding it twice.'],
+        ['fa-heart-pulse', 'HP, MP, skills, and titles', 'Confirmed damage, healing, mana use, skill activation, learned skills, and earned titles are tracked from replies and announced through the Dynamic Island.'],
+        ['fa-scroll', 'Daily quests and penalties', 'Daily quests show a deadline and penalty. If the story confirms failure or expiry, HP, MP, EXP, or System Credits can be deducted once.'],
+        ['fa-box-open', 'Inventory and equipment', 'Tap any item for full information. Consumables can be used, gear can be equipped, and owned item images can be customized. Mobile Equipment is displayed as a vertical slot list.'],
+        ['fa-coins', 'System Shop and Credits', 'Earn System Credits through confirmed rewards. Buying an item deducts Credits immediately. Refill or search uses the active SillyTavern provider and model.'],
+        ['fa-location-crosshairs', 'Scene tracking', 'Date, day, year, time, place, location, position, temperature, weather, and season update only when the story establishes them. Unknown values stay unchanged.'],
+        ['fa-image', 'Images', 'Select an image, drag it with one finger or mouse, pinch with two fingers to zoom, or use the precision sliders. Images are saved only in the active chat.'],
+        ['fa-user-shield', 'Administrator Mode', 'Enable Administrator Mode to edit the complete per-chat state as JSON. Image pixels remain managed through the image editor so large base64 data does not fill the administrator panel.'],
+    ];
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-guide-card"><header><div><span class="sl-system-eyebrow">PLAYER MANUAL</span><h3>How The System Works</h3></div><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-guide-grid">${sections.map(([icon, title, copy]) => `<section><i class="fa-solid ${icon}"></i><div><h4>${title}</h4><p>${copy}</p></div></section>`).join('')}</div></article>`; modal.hidden = false;
+}
+
+function adminStateForEditing(state) {
+    const editable = clone(state); editable.profile.image = editable.profile.image ? '[image stored — use Profile Image editor]' : '';
+    for (const item of editable.inventory) if (item.icon?.image) item.icon.image = '[image stored — use Item Image editor]';
+    for (const item of editable.shop) if (item.icon?.image) item.icon.image = '[image stored — shop images are generated presets]';
+    return editable;
+}
+
+function restoreAdminImages(edited, current) {
+    edited.profile ||= {}; if (String(edited.profile.image || '').startsWith('[image stored')) edited.profile.image = current.profile.image;
+    for (const collection of ['inventory', 'shop']) for (const item of edited[collection] || []) {
+        if (!String(item.icon?.image || '').startsWith('[image stored')) continue;
+        const original = current[collection].find(entry => entry.id === item.id); item.icon.image = original?.icon?.image || '';
+    }
+    return edited;
+}
+
+function openAdministrator() {
+    const state = getState(); const modal = document.getElementById('sl-admin-modal'); if (!modal) return;
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-admin-card"><header><div><span class="sl-system-eyebrow">SYSTEM OVERRIDE</span><h3>Administrator Mode</h3></div><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><section class="sl-admin-switch"><div><i class="fa-solid fa-user-shield"></i><span><b>${state.administratorMode ? 'ADMINISTRATOR ENABLED' : 'ADMINISTRATOR LOCKED'}</b><small>${state.administratorMode ? 'The complete per-chat record is editable.' : 'Enable this mode to edit all System values.'}</small></span></div><button type="button" data-sl-action="toggle-admin">${state.administratorMode ? 'DISABLE' : 'ENABLE'}</button></section><label class="sl-admin-editor"><span>PER-CHAT STATE JSON</span><textarea id="sl-admin-json" spellcheck="false" ${state.administratorMode ? '' : 'disabled'}>${html(JSON.stringify(adminStateForEditing(state), null, 2))}</textarea></label><p class="sl-admin-note"><i class="fa-solid fa-triangle-exclamation"></i> Invalid structures are rejected. Saved values are normalized to safe limits. Changes are queued for the next reply.</p><footer><button type="button" data-sl-action="close-modal">CANCEL</button><button type="button" data-sl-action="save-admin" ${state.administratorMode ? '' : 'disabled'}>SAVE OVERRIDE</button></footer></article>`; modal.hidden = false;
+}
+
+async function toggleAdministrator() { const state = getState(); state.administratorMode = !state.administratorMode; await persistState(state, 'administrator-toggle', { detect: false }); openAdministrator(); systemNotice('system', `ADMINISTRATOR ${state.administratorMode ? 'ENABLED' : 'DISABLED'}`, 'This setting belongs to the active chat'); }
+
+async function saveAdministrator() {
+    const state = getState(); if (!state.administratorMode) return; const input = document.getElementById('sl-admin-json'); const parsed = parseJson(input?.value); if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return systemNotice('error', 'ADMIN OVERRIDE REJECTED', 'The JSON is invalid');
+    const restored = restoreAdminImages(parsed, state); restored.administratorMode = true; const next = normalizeState(restored, state); queueAction(next, 'administrator-override', 'Administrator updated the per-chat System record'); await persistState(next, 'administrator-override'); closeSubmodals(); systemNotice('system', 'ADMIN OVERRIDE SAVED', 'Per-chat record normalized and updated');
 }
 
 function openImageEditor(target) {
     const state = getState(); let current; if (target === 'profile') current = state.profile; else { const item = state.inventory.find(entry => entry.id === target); if (!item) return; current = item.icon; }
     imageEditorTarget = target; imageEditorDraft = clone(current); const modal = document.getElementById('sl-image-editor'); if (!modal) return;
-    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-image-editor"></button><article class="sl-image-editor-card"><header><span>${target === 'profile' ? 'PROFILE IMAGE' : 'ITEM IMAGE'}</span><button type="button" data-sl-action="close-image-editor"><i class="fa-solid fa-xmark"></i></button></header><div id="sl-image-editor-preview" class="sl-image-editor-preview">${imageFrame(imageEditorDraft, 'Profile', 'is-editor')}</div><label class="sl-file-button"><input id="sl-image-file" type="file" accept="image/*"><i class="fa-solid fa-upload"></i> SELECT IMAGE</label><div class="sl-image-controls"><label><span>Horizontal <output id="sl-image-x-output">${imageEditorDraft.positionX}%</output></span><input id="sl-image-x" type="range" min="0" max="100" value="${imageEditorDraft.positionX}"></label><label><span>Vertical <output id="sl-image-y-output">${imageEditorDraft.positionY}%</output></span><input id="sl-image-y" type="range" min="0" max="100" value="${imageEditorDraft.positionY}"></label><label><span>Zoom <output id="sl-image-zoom-output">${imageEditorDraft.zoom.toFixed(2)}×</output></span><input id="sl-image-zoom" type="range" min="1" max="3" step="0.05" value="${imageEditorDraft.zoom}"></label></div><footer><button type="button" data-sl-action="remove-image">REMOVE</button><button type="button" data-sl-action="save-image">SAVE TO CHAT</button></footer></article>`; modal.hidden = false;
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-image-editor"></button><article class="sl-image-editor-card"><header><span>${target === 'profile' ? 'PROFILE IMAGE' : 'ITEM IMAGE'}</span><button type="button" data-sl-action="close-image-editor"><i class="fa-solid fa-xmark"></i></button></header><div id="sl-image-editor-preview" class="sl-image-editor-preview">${imageFrame(imageEditorDraft, 'Profile', 'is-editor')}<span class="sl-gesture-guide"><i class="fa-solid fa-hand-pointer"></i> DRAG TO MOVE · PINCH OR SCROLL TO ZOOM</span></div><label class="sl-file-button"><input id="sl-image-file" type="file" accept="image/*"><i class="fa-solid fa-upload"></i> SELECT IMAGE</label><div class="sl-image-controls"><label><span>Horizontal <output id="sl-image-x-output">${imageEditorDraft.positionX}%</output></span><input id="sl-image-x" type="range" min="0" max="100" value="${imageEditorDraft.positionX}"></label><label><span>Vertical <output id="sl-image-y-output">${imageEditorDraft.positionY}%</output></span><input id="sl-image-y" type="range" min="0" max="100" value="${imageEditorDraft.positionY}"></label><label><span>Zoom <output id="sl-image-zoom-output">${imageEditorDraft.zoom.toFixed(2)}×</output></span><input id="sl-image-zoom" type="range" min="1" max="3" step="0.05" value="${imageEditorDraft.zoom}"></label></div><footer><button type="button" data-sl-action="remove-image">REMOVE</button><button type="button" data-sl-action="save-image">SAVE TO CHAT</button></footer></article>`; modal.hidden = false; bindImageGestures();
 }
 
-function refreshImageEditorPreview() { const preview = document.getElementById('sl-image-editor-preview'); if (!preview || !imageEditorDraft) return; preview.innerHTML = imageFrame(imageEditorDraft, 'Profile', 'is-editor'); [['sl-image-x-output', `${imageEditorDraft.positionX}%`], ['sl-image-y-output', `${imageEditorDraft.positionY}%`], ['sl-image-zoom-output', `${imageEditorDraft.zoom.toFixed(2)}×`]].forEach(([id, value]) => { const output = document.getElementById(id); if (output) output.textContent = value; }); }
+function refreshImageEditorPreview() { const preview = document.getElementById('sl-image-editor-preview'); if (!preview || !imageEditorDraft) return; const frame = preview.querySelector('.sl-image-frame'); if (frame) { frame.classList.toggle('has-image', Boolean(imageEditorDraft.image)); frame.setAttribute('style', imageEditorDraft.image ? `--image:url('${imageEditorDraft.image}');--x:${imageEditorDraft.positionX}%;--y:${imageEditorDraft.positionY}%;--zoom:${imageEditorDraft.zoom}` : ''); frame.innerHTML = imageEditorDraft.image ? '<i></i><b></b>' : `${categorySvg('Profile')}<b></b>`; } [['sl-image-x-output', `${Math.round(imageEditorDraft.positionX)}%`], ['sl-image-y-output', `${Math.round(imageEditorDraft.positionY)}%`], ['sl-image-zoom-output', `${imageEditorDraft.zoom.toFixed(2)}×`], ['sl-image-x', imageEditorDraft.positionX], ['sl-image-y', imageEditorDraft.positionY], ['sl-image-zoom', imageEditorDraft.zoom]].forEach(([id, value]) => { const control = document.getElementById(id); if (control) control.value !== undefined ? control.value = String(value) : control.textContent = String(value); }); }
+
+function bindImageGestures() {
+    const preview = document.getElementById('sl-image-editor-preview'); if (!preview) return; const pointers = new Map(); imageGesture = { pointers, center: null, distance: 0 };
+    const metrics = () => { const values = [...pointers.values()]; if (!values.length) return { center: null, distance: 0 }; const center = values.reduce((sum, point) => ({ x: sum.x + point.x / values.length, y: sum.y + point.y / values.length }), { x: 0, y: 0 }); const distance = values.length > 1 ? Math.hypot(values[0].x - values[1].x, values[0].y - values[1].y) : 0; return { center, distance }; };
+    preview.addEventListener('pointerdown', event => { if (!imageEditorDraft?.image) return; event.preventDefault(); preview.setPointerCapture?.(event.pointerId); pointers.set(event.pointerId, { x: event.clientX, y: event.clientY }); Object.assign(imageGesture, metrics()); preview.classList.add('is-gesturing'); });
+    preview.addEventListener('pointermove', event => { if (!pointers.has(event.pointerId) || !imageEditorDraft?.image) return; event.preventDefault(); pointers.set(event.pointerId, { x: event.clientX, y: event.clientY }); const next = metrics(); const rect = preview.getBoundingClientRect(); if (imageGesture.center && next.center) { imageEditorDraft.positionX = number(imageEditorDraft.positionX - ((next.center.x - imageGesture.center.x) / Math.max(1, rect.width)) * 100, 50, 0, 100); imageEditorDraft.positionY = number(imageEditorDraft.positionY - ((next.center.y - imageGesture.center.y) / Math.max(1, rect.height)) * 100, 50, 0, 100); } if (pointers.size > 1 && imageGesture.distance > 0 && next.distance > 0) imageEditorDraft.zoom = number(imageEditorDraft.zoom * (next.distance / imageGesture.distance), 1, 1, 3); Object.assign(imageGesture, next); refreshImageEditorPreview(); });
+    const release = event => { pointers.delete(event.pointerId); Object.assign(imageGesture, metrics()); if (!pointers.size) preview.classList.remove('is-gesturing'); };
+    preview.addEventListener('pointerup', release); preview.addEventListener('pointercancel', release); preview.addEventListener('wheel', event => { if (!imageEditorDraft?.image) return; event.preventDefault(); imageEditorDraft.zoom = number(imageEditorDraft.zoom + (event.deltaY < 0 ? .08 : -.08), 1, 1, 3); refreshImageEditorPreview(); }, { passive: false });
+}
 
 async function saveImageEditor() { if (!imageEditorTarget || !imageEditorDraft) return; const state = getState(); if (imageEditorTarget === 'profile') state.profile = normalizeImage(imageEditorDraft); else { const item = state.inventory.find(entry => entry.id === imageEditorTarget); if (!item) return; item.icon = normalizeImage(imageEditorDraft); } await persistState(state, 'ui-image-update', { detect: false }); closeSubmodals(); systemNotice('system', 'IMAGE SAVED', 'Stored in this chat only'); }
-function closeSubmodals() { document.querySelectorAll('.sl-submodal').forEach(modal => { modal.hidden = true; modal.innerHTML = ''; }); selectedItemId = ''; imageEditorTarget = null; imageEditorDraft = null; }
+function closeSubmodals() { document.querySelectorAll('.sl-submodal').forEach(modal => { modal.hidden = true; modal.innerHTML = ''; }); selectedItemId = ''; imageEditorTarget = null; imageEditorDraft = null; imageGesture = null; }
 
 function handleInterfaceClick(event) {
+    const pressed = event.target.closest('button, .sl-shop-item, .sl-quest-card'); if (pressed) { pressed.classList.remove('sl-pressed'); requestAnimationFrame(() => pressed.classList.add('sl-pressed')); setTimeout(() => pressed.classList.remove('sl-pressed'), 360); }
     const action = event.target.closest('[data-sl-action]')?.dataset.slAction; const tab = event.target.closest('[data-sl-tab]')?.dataset.slTab; const item = event.target.closest('[data-sl-item]')?.dataset.slItem; const upgrade = event.target.closest('[data-sl-upgrade]')?.dataset.slUpgrade; const buy = event.target.closest('[data-sl-buy]')?.dataset.slBuy; const unequip = event.target.closest('[data-sl-unequip]')?.dataset.slUnequip; const pager = event.target.closest('[data-sl-page]');
-    if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
+    if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'save-admin') saveAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
 }
 
 function handleInterfaceSubmit(event) { if (event.target.id !== 'sl-shop-search') return; event.preventDefault(); const query = text(document.getElementById('sl-shop-query')?.value, '', 160); if (query) generateShop(query); }
@@ -471,7 +594,7 @@ function observeWandMenu() { if (createWandLauncher() || menuObserver) return; m
 function bindCheckbox(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement)) return; control.checked = Boolean(getSettings()[key]); control.onchange = () => { getSettings()[key] = control.checked; saveSettings(); callback?.(); }; }
 function bindSettingControl(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return; control.value = String(getSettings()[key]); const update = () => { getSettings()[key] = control.type === 'range' ? Number(control.value) : control.value; saveSettings(); callback?.(); }; if (control.type === 'range' || control.type === 'color') control.oninput = update; else control.onchange = update; }
 
-function bindSettingsDrawer() { bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance); bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance); const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`; const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; applyAppearance(); }
+function bindSettingsDrawer() { bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-background', 'backgroundColor', applyAppearance); bindSettingControl('sl-system-particle', 'particleColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance); bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance); const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`; const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; applyAppearance(); }
 
 async function addSettingsDrawer() { if (document.getElementById('sl-system-settings')) { bindSettingsDrawer(); return true; } const container = document.getElementById('extensions_settings2'); if (!container) return false; const rendered = await context().renderExtensionTemplateAsync?.(EXTENSION_FOLDER, 'settings'); if (!rendered) return false; container.insertAdjacentHTML('beforeend', rendered); bindSettingsDrawer(); return true; }
 function observeSettingsDrawer() { if (settingsObserver) return; settingsObserver = new MutationObserver(async () => { try { if (await addSettingsDrawer()) { settingsObserver.disconnect(); settingsObserver = null; } } catch (error) { console.error('[The System] Settings drawer failed.', error); } }); settingsObserver.observe(document.body, { childList: true, subtree: true }); }
