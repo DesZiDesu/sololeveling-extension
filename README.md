@@ -4,7 +4,14 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
-Version 0.3.0 replaces the centered popup with the same drawer architecture used by Tensei System: a right-side sliding UI on desktop and an upward full-screen UI on mobile. The quest decision, acknowledgement, and Status screen are internal states of that single drawer.
+Version 0.4.0 introduces the complete per-chat Player interface with a professional Solo Leveling-inspired visual system.
+
+- Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
+- Horizontal Status, Quest, Inventory, Equipment, and System Shop navigation.
+- Profile and item image editors with position and zoom controls.
+- Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
+- AI-powered shop refill and item search through the active SillyTavern provider.
+- Custom Dynamic Island notifications for level, HP, MP, skills, titles, items, stats, and synchronization.
 
 - Adds a **The System** drawer to the SillyTavern Extensions page.
 - Adds a **The System** launcher to the wand menu.
