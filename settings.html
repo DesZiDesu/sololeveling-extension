@@ -1,31 +1,39 @@
 <div id="sl-system-settings" class="sl-system-settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header interactable" tabindex="0" role="button" aria-expanded="false">
-            <b><i class="fa-solid fa-bolt" aria-hidden="true"></i> The System</b>
+            <b><span class="sl-system-settings-mark">SYS</span> The System</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down" aria-hidden="true"></div>
         </div>
         <div class="inline-drawer-content">
-            <p class="sl-system-settings-copy">Open the Solo Leveling system interface from the Extensions page or the wand menu.</p>
+            <div class="sl-system-settings-heading">
+                <span class="sl-system-eyebrow">Solo Leveling interface</span>
+                <p>Open the system onboarding sequence or return to the active player status screen.</p>
+            </div>
 
             <label class="checkbox_label" for="sl-system-show-launcher">
                 <input id="sl-system-show-launcher" type="checkbox" />
                 <span>Show <em>The System</em> in the wand menu</span>
             </label>
+            <label class="checkbox_label" for="sl-system-auto-track">
+                <input id="sl-system-auto-track" type="checkbox" />
+                <span>Track confirmed state changes from normal AI replies</span>
+            </label>
+            <label class="checkbox_label" for="sl-system-inject-state">
+                <input id="sl-system-inject-state" type="checkbox" />
+                <span>Include current status in the role-play prompt</span>
+            </label>
 
-            <div class="sl-system-settings-note">
-                <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-                <span>This first build is the working interface shell. Persistent player state, skills, quests, and progression will be connected in the next layer.</span>
+            <div class="sl-system-settings-grid">
+                <label class="sl-system-settings-field" for="sl-system-accent"><span>Interface color</span><input id="sl-system-accent" type="color" value="#45c9ff" /></label>
+                <label class="sl-system-settings-field" for="sl-system-glass"><span>Glass opacity</span><input id="sl-system-glass" type="range" min="55" max="98" value="86" /></label>
+                <label class="sl-system-settings-field" for="sl-system-glow"><span>Animated glow</span><input id="sl-system-glow" type="range" min="0" max="100" value="48" /></label>
             </div>
 
+            <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The extension uses SillyTavern’s active provider/model through its extension context. It does not request or store a separate API key, and it adds no local content filter.</span></div>
             <div class="sl-system-settings-actions">
-                <button id="sl-system-open-from-settings" class="menu_button" type="button">
-                    <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
-                    Open The System
-                </button>
-                <span class="sl-system-ready-state">
-                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                    Interface online
-                </span>
+                <button id="sl-system-open-from-settings" class="menu_button" type="button"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Open The System</button>
+                <button id="sl-system-sync-from-settings" class="menu_button" type="button"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync latest turn</button>
+                <span class="sl-system-ready-state"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Interface online</span>
             </div>
         </div>
     </div>
