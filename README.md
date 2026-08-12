@@ -4,7 +4,7 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
-Version 0.2.2 uses persistent delegated launch handling so SillyTavern can rebuild its Extensions drawer or wand menu without disconnecting The System buttons. It also includes a runtime visibility fallback independent of the extension stylesheet.
+Version 0.3.0 replaces the centered popup with the same drawer architecture used by Tensei System: a right-side sliding UI on desktop and an upward full-screen UI on mobile. The quest decision, acknowledgement, and Status screen are internal states of that single drawer.
 
 - Adds a **The System** drawer to the SillyTavern Extensions page.
 - Adds a **The System** launcher to the wand menu.
