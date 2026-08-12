@@ -1,7 +1,7 @@
 <div id="sl-system-settings" class="sl-system-settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header interactable" tabindex="0" role="button" aria-expanded="false">
-            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.4.0</span></b>
+            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.5.0</span></b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down" aria-hidden="true"></div>
         </div>
         <div class="inline-drawer-content">
@@ -23,14 +23,18 @@
                 <span>Include current status in the role-play prompt</span>
             </label>
 
+            <div class="sl-system-color-row" aria-label="Interface colors">
+                <label class="sl-system-color-field" for="sl-system-accent"><input id="sl-system-accent" type="color" value="#35bfff" /><span>Main</span></label>
+                <label class="sl-system-color-field" for="sl-system-background"><input id="sl-system-background" type="color" value="#030e1c" /><span>Background</span></label>
+                <label class="sl-system-color-field" for="sl-system-particle"><input id="sl-system-particle" type="color" value="#6dd8ff" /><span>Particles</span></label>
+            </div>
             <div class="sl-system-settings-grid">
-                <label class="sl-system-settings-field" for="sl-system-accent"><span>Interface color</span><input id="sl-system-accent" type="color" value="#35bfff" /></label>
                 <label class="sl-system-settings-field" for="sl-system-glass"><span>Glass opacity</span><input id="sl-system-glass" type="range" min="55" max="98" value="90" /></label>
                 <label class="sl-system-settings-field" for="sl-system-glow"><span>Animated glow</span><input id="sl-system-glow" type="range" min="0" max="100" value="58" /></label>
                 <label class="sl-system-settings-field" for="sl-system-notification-position"><span>Dynamic Island position</span><select id="sl-system-notification-position"><option value="top-center">Top center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-center">Bottom center</option></select></label>
             </div>
 
-            <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The System uses SillyTavern’s active provider/model. Profile and item images are saved only in the active chat metadata.</span></div>
+            <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The System uses SillyTavern’s active provider/model. Profile, scene, quests, currency, and item images are saved only in the active chat metadata.</span></div>
             <div class="sl-system-settings-actions">
                 <button id="sl-system-open-from-settings" class="menu_button" type="button" data-sl-open-system="true"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Open The System</button>
                 <button id="sl-system-sync-from-settings" class="menu_button" type="button"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync latest turn</button>
