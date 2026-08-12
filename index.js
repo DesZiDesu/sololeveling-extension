@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.2.1';
+const UI_VERSION = '0.2.2';
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -40,6 +40,7 @@ let settingsObserver = null;
 let previousFocusedElement = null;
 let activeTab = 'status';
 let transitionTimer = null;
+let globalLaunchHandlersBound = false;
 
 function context() { return globalThis.SillyTavern?.getContext?.() || {}; }
 
@@ -255,6 +256,14 @@ function renderActivePanel() {
     if (panel) panel.innerHTML = activeTab === 'status' ? renderStatus() : renderPlaceholder(activeTab);
 }
 
+function ensureRuntimeOpenStyles() {
+    if (document.getElementById('sl-system-runtime-open-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'sl-system-runtime-open-styles';
+    style.textContent = `#sl-system-overlay{position:fixed;inset:0;z-index:2147483000}#sl-system-overlay.is-open{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}#sl-system-overlay.is-open #sl-system-frame{visibility:visible!important;opacity:1!important}`;
+    (document.head || document.documentElement).appendChild(style);
+}
+
 function activateTab(tabId) {
     if (!TABS.some(tab => tab.id === tabId)) return;
     activeTab = tabId;
@@ -285,7 +294,10 @@ function showPhase(phase) {
     const overlay = document.getElementById('sl-system-overlay');
     if (!overlay) return;
     overlay.dataset.phase = phase;
-    for (const id of ['notification', 'acknowledgement', 'main']) document.getElementById(`sl-system-${id}`)?.toggleAttribute('hidden', id !== phase);
+    for (const id of ['notification', 'acknowledgement', 'main']) {
+        const section = document.getElementById(`sl-system-${id}`);
+        if (section) section.hidden = id !== phase;
+    }
     if (phase === 'main') { activateTab(activeTab); renderActivePanel(); }
 }
 
@@ -303,10 +315,11 @@ function declineSystem() {
 
 function openInterface() {
     try {
+        ensureRuntimeOpenStyles();
         buildInterface();
         const overlay = document.getElementById('sl-system-overlay'); const frame = document.getElementById('sl-system-frame');
         if (!overlay || !frame) throw new Error('The interface frame was not created.');
-        previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); showPhase(getSettings().systemAccepted ? 'main' : 'notification'); requestAnimationFrame(() => frame.focus());
+        previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.hidden = false; overlay.removeAttribute('inert'); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); showPhase(getSettings().systemAccepted ? 'main' : 'notification'); (globalThis.requestAnimationFrame || (callback => setTimeout(callback, 0)))(() => frame.focus());
     } catch (error) {
         console.error('[The System] Could not open the interface.', error);
         notify('error', 'The System could not open. Reload SillyTavern and try again.');
@@ -318,6 +331,30 @@ function closeInterface() {
     if (!overlay?.classList.contains('is-open')) return;
     clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open');
     if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true });
+}
+
+function launchFromEvent(event) {
+    if (event.__slSystemHandled) return;
+    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+    event.__slSystemHandled = true;
+    event.preventDefault();
+    event.stopPropagation();
+    openInterface();
+}
+
+function findLaunchTrigger(target) {
+    const element = target instanceof Element ? target : target?.parentElement;
+    return element?.closest?.('[data-sl-open-system], #sl-system-open-from-settings, #sl-system-wand-launcher') || null;
+}
+
+function bindGlobalLaunchHandlers() {
+    if (globalLaunchHandlersBound) return;
+    globalLaunchHandlersBound = true;
+    const handle = event => { if (findLaunchTrigger(event.target)) launchFromEvent(event); };
+    globalThis.addEventListener?.('click', handle, true);
+    globalThis.addEventListener?.('keydown', handle, true);
+    document.addEventListener('click', handle, true);
+    document.addEventListener('keydown', handle, true);
 }
 
 function syncLauncherVisibility() {
@@ -335,32 +372,33 @@ function createWandLauncher() {
     }
     if (!launcher) return false;
     launcher.dataset.slUiVersion = UI_VERSION;
-    const activate = event => { if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return; event.preventDefault(); openInterface(); };
-    launcher.onclick = activate; launcher.onkeydown = activate; syncLauncherVisibility(); return true;
+    launcher.dataset.slOpenSystem = 'true';
+    launcher.onclick = launchFromEvent; launcher.onkeydown = launchFromEvent; syncLauncherVisibility(); return true;
 }
 
 function observeWandMenu() {
-    if (createWandLauncher() || menuObserver) return;
-    menuObserver = new MutationObserver(() => { if (createWandLauncher()) { menuObserver.disconnect(); menuObserver = null; } });
+    createWandLauncher();
+    if (menuObserver) return;
+    menuObserver = new MutationObserver(createWandLauncher);
     menuObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 function bindCheckbox(id, key, callback) {
     const control = document.getElementById(id); if (!(control instanceof HTMLInputElement)) return;
-    control.checked = Boolean(getSettings()[key]); control.addEventListener('change', () => { getSettings()[key] = control.checked; saveSettings(); callback?.(); });
+    control.checked = Boolean(getSettings()[key]); control.onchange = () => { getSettings()[key] = control.checked; saveSettings(); callback?.(); };
 }
 
 function bindSettingControl(id, key, callback) {
     const control = document.getElementById(id); if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return;
     control.value = String(getSettings()[key]); const update = () => { getSettings()[key] = control.type === 'range' ? Number(control.value) : control.value; saveSettings(); callback?.(); };
-    control.addEventListener(control.type === 'range' || control.type === 'color' ? 'input' : 'change', update);
+    if (control.type === 'range' || control.type === 'color') control.oninput = update; else control.onchange = update;
 }
 
 function bindSettingsDrawer() {
     bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance);
     const openButton = document.getElementById('sl-system-open-from-settings');
     const syncButton = document.getElementById('sl-system-sync-from-settings');
-    if (openButton) openButton.onclick = openInterface;
+    if (openButton) { openButton.dataset.slOpenSystem = 'true'; openButton.onclick = launchFromEvent; }
     if (syncButton) syncButton.onclick = syncLatestTurn;
     applyAppearance();
 }
@@ -374,7 +412,7 @@ async function addSettingsDrawer() {
 
 function observeSettingsDrawer() {
     if (settingsObserver) return;
-    settingsObserver = new MutationObserver(async () => { try { if (await addSettingsDrawer()) { settingsObserver.disconnect(); settingsObserver = null; } } catch (error) { console.error('[The System] Could not add the Extensions drawer.', error); } });
+    settingsObserver = new MutationObserver(async () => { try { await addSettingsDrawer(); } catch (error) { console.error('[The System] Could not add the Extensions drawer.', error); } });
     settingsObserver.observe(document.body, { childList: true, subtree: true });
 }
 
@@ -388,8 +426,9 @@ function bindChatEvents() {
 
 async function initialize() {
     if (initialized) return; initialized = true;
-    try { getSettings(); applyAppearance(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); document.addEventListener('keydown', event => { if (event.key === 'Escape') closeInterface(); }); console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
+    try { bindGlobalLaunchHandlers(); ensureRuntimeOpenStyles(); getSettings(); applyAppearance(); buildInterface(); await addSettingsDrawer(); observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface }; document.addEventListener('keydown', event => { if (event.key === 'Escape') closeInterface(); }); console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
     catch (error) { initialized = false; console.error('[The System] Failed to initialize.', error); notify('error', 'The System could not load. Check the browser console.'); }
 }
 
+bindGlobalLaunchHandlers();
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true }); else void initialize();
