@@ -4,7 +4,9 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.3.0 completes the skill and summon presentation pass with true square portrait controls, reliable uploaded-image cropping, strict skill categories, and mastery-dependent Buff mechanics.
+Version 1.3.1 adds a flexible chat launcher with fixed-edge, draggable floating-dot, and fully hidden modes while preserving the skill and summon presentation improvements from v1.3.0.
+
+- Choose **Fixed edge rail**, **Draggable floating dot**, or **Off / hidden** in the extension settings. The floating dot opens the quick System menu on tap/click, supports mouse and one-finger dragging, stays inside the visible screen, and remembers its relative position across resizing and rotation.
 
 - Skill and summon portrait controls are now true 1:1 frames. Uploaded images fill the square with saved position and zoom; summons without an upload use a clear species/race/name initial plus a compact rank code.
 - Existing chats automatically discard stale aura flags from ordinary skills. Only the explicit **Buff** category can recolor mana, particles, or the System interface.
@@ -12,7 +14,7 @@ Version 1.3.0 completes the skill and summon presentation pass with true square 
 - Active, Passive, Buff, Summoning, and Utility are normalized as distinct skill categories. Skill level remains separate from mastery, while summoning-skill levels continue to expand unit storage.
 
 - Background style can be Animated Void, Static Dark, or Transparent Glass. Interface, background, and particle colors remain independently configurable.
-- The side launcher is rebuilt as a compact angular holographic access rail with energy traces instead of the previous half-circle/orbit panel.
+- The fixed launcher remains a compact angular holographic access rail; users can instead choose a draggable circular access point or disable the chat launcher entirely.
 - Missions now use stable compact cards with wrapping titles and isolated status chips in English and Thai.
 - Every missing reward pool is filled locally as soon as a mission is normalized, so completed missions always have three choices without making another model/API call.
 
@@ -33,7 +35,7 @@ Version 1.3.0 completes the skill and summon presentation pass with true square 
 - Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
 - AI-powered shop refill and item search with support for current and legacy SillyTavern quiet-generation signatures and tolerant JSON parsing.
 - A temporary sharp rectangular Dynamic Island with compact/full display modes while the AI is responding or a System operation is running; it clears automatically afterward so SillyTavern’s top controls remain accessible.
-- A collapsed half-circle launcher centered on the selected Left or Right screen edge, with inward-swipe and tap/click controls and immediate access to the System on mobile and PC.
+- A selectable fixed edge rail or draggable floating dot with tap/click access to the quick System menu on mobile and PC, plus an Off mode for a completely clear chat screen.
 - Automatic EXP rollover raises the Player level at the threshold, carries excess EXP into the next level, scales the next requirement, and grants three stat points per level.
 - Redesigned segmented HP/MP monitors, progression route, and responsive attribute matrix.
 - A separate draggable milestone alert window over the main chat, with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal; both notification layers hide while the full System panel is open.
@@ -57,7 +59,7 @@ Version 1.3.0 completes the skill and summon presentation pass with true square 
 
 ## Live preview
 
-Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.3.0 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.3.1 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
 
 ## Installation
 
@@ -67,4 +69,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.3.0.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.3.1.

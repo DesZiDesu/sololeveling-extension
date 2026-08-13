@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '1.3.0';
+const UI_VERSION = '1.3.1';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -22,6 +22,9 @@ const DEFAULT_SETTINGS = Object.freeze({
     notificationMode: 'compact',
     sidebarPosition: 'right',
     sidebarEnabled: true,
+    sidebarMode: 'edge',
+    floatingLauncherX: null,
+    floatingLauncherY: null,
     layoutMode: 'auto',
     eventNotificationX: null,
     eventNotificationY: null,
@@ -170,17 +173,20 @@ function getSettings() {
         if (settings.glassOpacity === 90) settings.glassOpacity = DEFAULT_SETTINGS.glassOpacity;
         settings.visualVersion = DEFAULT_SETTINGS.visualVersion;
     }
+    const hadSidebarMode = settings.sidebarMode !== undefined;
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) if (settings[key] === undefined) settings[key] = value;
+    if (!hadSidebarMode) settings.sidebarMode = settings.sidebarEnabled === false ? 'off' : 'edge';
     settings.glassOpacity = number(settings.glassOpacity, DEFAULT_SETTINGS.glassOpacity, 55, 98);
     settings.glowStrength = number(settings.glowStrength, DEFAULT_SETTINGS.glowStrength, 0, 100);
     for (const key of ['accentColor', 'backgroundColor', 'particleColor']) if (!/^#[0-9a-f]{6}$/i.test(settings[key])) settings[key] = DEFAULT_SETTINGS[key];
     if (!['top-center', 'top-left', 'top-right', 'bottom-center'].includes(settings.notificationPosition)) settings.notificationPosition = DEFAULT_SETTINGS.notificationPosition;
     if (!['compact', 'full'].includes(settings.notificationMode)) settings.notificationMode = DEFAULT_SETTINGS.notificationMode;
     if (!['left', 'right'].includes(settings.sidebarPosition)) settings.sidebarPosition = DEFAULT_SETTINGS.sidebarPosition;
+    if (!['off', 'edge', 'floating'].includes(settings.sidebarMode)) settings.sidebarMode = DEFAULT_SETTINGS.sidebarMode;
     if (!['auto', 'desktop', 'mobile'].includes(settings.layoutMode)) settings.layoutMode = DEFAULT_SETTINGS.layoutMode;
     if (!['animated', 'dark', 'transparent'].includes(settings.backgroundMode)) settings.backgroundMode = DEFAULT_SETTINGS.backgroundMode;
-    settings.sidebarEnabled = settings.sidebarEnabled !== false;
-    for (const key of ['eventNotificationX', 'eventNotificationY']) {
+    settings.sidebarEnabled = settings.sidebarMode !== 'off';
+    for (const key of ['eventNotificationX', 'eventNotificationY', 'floatingLauncherX', 'floatingLauncherY']) {
         if (settings[key] !== null && settings[key] !== undefined && Number.isFinite(Number(settings[key]))) settings[key] = number(settings[key], null, 0, 100);
         else settings[key] = null;
     }
@@ -207,7 +213,7 @@ function applyAppearance() {
     root.style.setProperty('--sl-system-glow-size', `${Math.round(48 * settings.glowStrength / 100)}px`);
     root.style.setProperty('--sl-system-particle-opacity', String(.22 + (settings.glowStrength / 100) * .52));
     const island = document.getElementById('sl-system-island'); if (island) { island.setAttribute('data-position', settings.notificationPosition); island.setAttribute('data-view', settings.notificationMode); const icon = island.querySelector('[data-sl-island-mode] i'); if (icon) icon.className = `fa-solid ${settings.notificationMode === 'compact' ? 'fa-expand' : 'fa-compress'}`; }
-    const edgeLauncher = document.getElementById('sl-system-edge-launcher'); if (edgeLauncher) edgeLauncher.dataset.side = settings.sidebarPosition;
+    const edgeLauncher = document.getElementById('sl-system-edge-launcher'); if (edgeLauncher) { edgeLauncher.dataset.mode = settings.sidebarMode; if (settings.sidebarMode !== 'floating') edgeLauncher.dataset.side = settings.sidebarPosition; }
     document.body?.classList.toggle('sl-aura-active', Boolean(auraSkill));
     const overlay = document.getElementById('sl-system-overlay'); if (overlay) { overlay.dataset.aura = auraSkill?.id || ''; overlay.dataset.layout = settings.layoutMode; overlay.dataset.backgroundMode = settings.backgroundMode; overlay.style.setProperty('--sl-aura-name', `"${String(auraSkill?.name || '').replaceAll('"', '')}"`); }
     positionEdgeLauncher();
@@ -815,13 +821,40 @@ function setEdgeLauncher(open) {
 
 function syncEdgeLauncherVisibility() {
     const launcher = document.getElementById('sl-system-edge-launcher'); if (!launcher) return;
-    const visible = Boolean(getSettings().sidebarEnabled && context().getCurrentChatId?.() && getState().accepted && !isInterfaceOpen());
+    const settings = getSettings(); launcher.dataset.mode = settings.sidebarMode;
+    const visible = Boolean(settings.sidebarMode !== 'off' && context().getCurrentChatId?.() && getState().accepted && !isInterfaceOpen());
     launcher.hidden = !visible; if (!visible) setEdgeLauncher(false);
+    positionEdgeLauncher();
+}
+
+function placeFloatingLauncher(clientX, clientY, persist = false) {
+    const launcher = document.getElementById('sl-system-edge-launcher'); if (!launcher) return;
+    const viewport = globalThis.visualViewport;
+    const left = viewport?.offsetLeft || 0; const top = viewport?.offsetTop || 0;
+    const width = viewport?.width || window.innerWidth; const height = viewport?.height || window.innerHeight;
+    const radius = Math.max(23, Math.min(30, (launcher.querySelector('.sl-edge-handle')?.getBoundingClientRect().width || 46) / 2));
+    const centerX = Math.min(left + width - radius - 6, Math.max(left + radius + 6, clientX));
+    const centerY = Math.min(top + height - 54, Math.max(top + 54, clientY));
+    launcher.style.left = `${Math.round(centerX)}px`; launcher.style.right = 'auto'; launcher.style.top = `${Math.round(centerY)}px`; launcher.style.transform = 'translate(-50%,-50%)';
+    launcher.dataset.side = centerX < left + width / 2 ? 'left' : 'right';
+    const trayWidth = Math.min(248, width - 24); const desiredTrayLeft = launcher.dataset.side === 'left' ? centerX + 52 : centerX - 52 - trayWidth;
+    const trayLeft = Math.min(left + width - trayWidth - 12, Math.max(left + 12, desiredTrayLeft));
+    launcher.style.setProperty('--sl-floating-tray-x', `${Math.round(trayLeft - centerX)}px`);
+    if (persist) { const settings = getSettings(); settings.floatingLauncherX = Math.round(((centerX - left) / Math.max(1, width)) * 10000) / 100; settings.floatingLauncherY = Math.round(((centerY - top) / Math.max(1, height)) * 10000) / 100; saveSettings(); }
 }
 
 function positionEdgeLauncher() {
     const launcher = document.getElementById('sl-system-edge-launcher'); if (!launcher) return;
+    const settings = getSettings(); launcher.dataset.mode = settings.sidebarMode;
     const viewport = globalThis.visualViewport;
+    if (settings.sidebarMode === 'floating') {
+        const left = viewport?.offsetLeft || 0; const top = viewport?.offsetTop || 0;
+        const width = viewport?.width || window.innerWidth; const height = viewport?.height || window.innerHeight;
+        const fallbackX = settings.sidebarPosition === 'left' ? 8 : 92;
+        placeFloatingLauncher(left + width * number(settings.floatingLauncherX, fallbackX, 0, 100) / 100, top + height * number(settings.floatingLauncherY, 50, 0, 100) / 100);
+        return;
+    }
+    launcher.dataset.side = settings.sidebarPosition; launcher.style.left = ''; launcher.style.right = ''; launcher.style.transform = 'translateY(-50%)';
     const top = viewport ? viewport.offsetTop + viewport.height / 2 : window.innerHeight / 2;
     launcher.style.top = `${Math.round(top)}px`;
 }
@@ -829,13 +862,13 @@ function positionEdgeLauncher() {
 function buildEdgeLauncher() {
     if (document.getElementById('sl-system-edge-launcher')) return;
     const environment = document.createElement('button'); environment.id = 'sl-system-edge-environment'; environment.className = 'sl-system-edge-environment'; environment.type = 'button'; environment.setAttribute('aria-label', 'Close System shortcut'); environment.setAttribute('aria-hidden', 'true'); environment.addEventListener('click', () => setEdgeLauncher(false));
-    const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.dataset.side = getSettings().sidebarPosition; launcher.hidden = true;
+    const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.dataset.side = getSettings().sidebarPosition; launcher.dataset.mode = getSettings().sidebarMode; launcher.hidden = true;
     launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><div class="sl-edge-energy" aria-hidden="true"><i></i><i></i><i></i></div><button type="button" data-sl-edge-open-system aria-label="Open player interface"><span class="sl-edge-system-code">PLAYER INTERFACE</span><b>OPEN STATUS</b><small>LIVE RECORD ACCESS</small></button><span class="sl-edge-scan" aria-hidden="true"></span></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show player interface shortcut" aria-expanded="false"><span class="sl-edge-handle-core"><i class="fa-solid fa-diamond"></i></span><i class="fa-solid fa-chevron-left"></i><span class="sl-edge-handle-signal"></span></button>`;
     const handle = launcher.querySelector('[data-sl-edge-toggle]');
     handle?.addEventListener('click', () => { if (suppressEdgeLauncherClick) { suppressEdgeLauncherClick = false; return; } setEdgeLauncher(!edgeLauncherOpen); });
-    handle?.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; edgeLauncherGesture = { id: event.pointerId, x: event.clientX, y: event.clientY }; handle.setPointerCapture?.(event.pointerId); launcher.classList.add('is-touching'); });
-    handle?.addEventListener('pointermove', event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const inward = launcher.dataset.side === 'left' ? dx > 8 : dx < -8; launcher.classList.toggle('is-peeking', inward); });
-    const release = event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const dy = event.clientY - edgeLauncherGesture.y; if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { suppressEdgeLauncherClick = true; const inward = launcher.dataset.side === 'left' ? dx > 0 : dx < 0; setEdgeLauncher(inward); setTimeout(() => { suppressEdgeLauncherClick = false; }, 0); } launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; };
+    handle?.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; const rect = handle.getBoundingClientRect(); edgeLauncherGesture = { id: event.pointerId, x: event.clientX, y: event.clientY, offsetX: event.clientX - (rect.left + rect.width / 2), offsetY: event.clientY - (rect.top + rect.height / 2), moved: false, mode: getSettings().sidebarMode }; handle.setPointerCapture?.(event.pointerId); launcher.classList.add('is-touching'); if (edgeLauncherGesture.mode === 'floating') setEdgeLauncher(false); });
+    handle?.addEventListener('pointermove', event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const dy = event.clientY - edgeLauncherGesture.y; if (edgeLauncherGesture.mode === 'floating') { if (!edgeLauncherGesture.moved && Math.hypot(dx, dy) < 6) return; edgeLauncherGesture.moved = true; launcher.classList.add('is-dragging'); placeFloatingLauncher(event.clientX - edgeLauncherGesture.offsetX, event.clientY - edgeLauncherGesture.offsetY); return; } const inward = launcher.dataset.side === 'left' ? dx > 8 : dx < -8; launcher.classList.toggle('is-peeking', inward); });
+    const release = event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const gesture = edgeLauncherGesture; const dx = event.clientX - gesture.x; const dy = event.clientY - gesture.y; if (gesture.mode === 'floating' && gesture.moved) { suppressEdgeLauncherClick = true; placeFloatingLauncher(event.clientX - gesture.offsetX, event.clientY - gesture.offsetY, true); setTimeout(() => { suppressEdgeLauncherClick = false; }, 250); } else if (gesture.mode !== 'floating' && Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { suppressEdgeLauncherClick = true; const inward = launcher.dataset.side === 'left' ? dx > 0 : dx < 0; setEdgeLauncher(inward); setTimeout(() => { suppressEdgeLauncherClick = false; }, 0); } launcher.classList.remove('is-touching', 'is-peeking', 'is-dragging'); edgeLauncherGesture = null; };
     handle?.addEventListener('pointerup', release); handle?.addEventListener('pointercancel', event => { launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; suppressEdgeLauncherClick = false; });
     launcher.querySelector('[data-sl-edge-open-system]')?.addEventListener('click', () => { setEdgeLauncher(false); openInterface(); });
     document.body.append(environment, launcher); positionEdgeLauncher(); syncEdgeLauncherVisibility();
@@ -1406,7 +1439,6 @@ function resetEventNoticePosition() { const settings = getSettings(); settings.e
 
 function bindSettingsDrawer() {
     bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility);
-    bindCheckbox('sl-system-sidebar-enabled', 'sidebarEnabled', syncEdgeLauncherVisibility);
     bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt);
     bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt);
     bindCheckbox('sl-system-smart-fallback', 'smartFallback');
@@ -1417,6 +1449,7 @@ function bindSettingsDrawer() {
     bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance);
     bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance);
     bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance);
+    bindSettingControl('sl-system-sidebar-mode', 'sidebarMode', () => { setEdgeLauncher(false); syncEdgeLauncherVisibility(); applyAppearance(); });
     bindSettingControl('sl-system-sidebar-position', 'sidebarPosition', applyAppearance);
     bindSettingControl('sl-system-layout-mode', 'layoutMode', applyAppearance);
     bindSettingControl('sl-system-background-mode', 'backgroundMode', applyAppearance);
