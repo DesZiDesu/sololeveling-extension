@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.7.1';
+const UI_VERSION = '0.7.2';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -106,6 +106,10 @@ let islandTimer = null;
 let eventNoticeTimer = null;
 let islandQueue = [];
 let islandBusy = false;
+let islandCurrent = null;
+let edgeLauncherOpen = false;
+let edgeLauncherGesture = null;
+let suppressEdgeLauncherClick = false;
 let eventNoticeQueue = [];
 let eventNoticeCurrent = null;
 let eventNoticeBusy = false;
@@ -602,12 +606,46 @@ function shouldShowNotifications() { return Boolean(context().getCurrentChatId?.
 function playNextNotice() {
     if (islandBusy || !islandQueue.length) return;
     buildIsland(); const island = document.getElementById('sl-system-island'); if (!island) return;
-    islandBusy = true; const item = islandQueue.shift(); island.dataset.mode = item.mode;
+    islandBusy = true; const item = islandQueue.shift(); islandCurrent = item; island.dataset.mode = item.mode;
     island.dataset.targetTab = item.destination?.tab || '';
     island.dataset.targetQuest = item.destination?.questId || '';
     island.dataset.targetSkill = item.destination?.skillId || '';
     island.querySelector('strong').textContent = item.title; island.querySelector('small').textContent = item.detail || 'The System has been updated'; island.classList.toggle('is-visible', shouldShowNotifications());
-    clearTimeout(islandTimer); islandTimer = setTimeout(() => { islandBusy = false; playNextNotice(); }, item.mode === 'working' ? 1200 : 2600);
+    clearTimeout(islandTimer);
+    if (!item.destination?.persistent) islandTimer = setTimeout(finishIslandNotice, item.mode === 'working' ? 1500 : 2600);
+}
+
+function finishIslandNotice() {
+    clearTimeout(islandTimer); islandTimer = null; islandBusy = false; islandCurrent = null;
+    document.getElementById('sl-system-island')?.classList.remove('is-visible');
+    playNextNotice();
+}
+
+function setEdgeLauncher(open) {
+    const launcher = document.getElementById('sl-system-edge-launcher'); edgeLauncherOpen = Boolean(open);
+    if (!launcher) return; launcher.classList.toggle('is-open', edgeLauncherOpen);
+    launcher.querySelector('[data-sl-edge-toggle]')?.setAttribute('aria-expanded', String(edgeLauncherOpen));
+    launcher.querySelector('.sl-edge-tray')?.setAttribute('aria-hidden', String(!edgeLauncherOpen));
+}
+
+function syncEdgeLauncherVisibility() {
+    const launcher = document.getElementById('sl-system-edge-launcher'); if (!launcher) return;
+    const visible = Boolean(context().getCurrentChatId?.() && getState().accepted && !isInterfaceOpen());
+    launcher.hidden = !visible; if (!visible) setEdgeLauncher(false);
+}
+
+function buildEdgeLauncher() {
+    if (document.getElementById('sl-system-edge-launcher')) return;
+    const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.hidden = true;
+    launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><button type="button" data-sl-edge-open-system aria-label="Open The System"><span><i class="fa-solid fa-diamond"></i></span><b>THE SYSTEM</b><small>OPEN</small></button><i class="sl-edge-scan"></i></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show System shortcut" aria-expanded="false"><i class="fa-solid fa-chevron-left"></i><span></span></button>`;
+    const handle = launcher.querySelector('[data-sl-edge-toggle]');
+    handle?.addEventListener('click', () => { if (suppressEdgeLauncherClick) { suppressEdgeLauncherClick = false; return; } setEdgeLauncher(!edgeLauncherOpen); });
+    handle?.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; edgeLauncherGesture = { id: event.pointerId, x: event.clientX, y: event.clientY }; handle.setPointerCapture?.(event.pointerId); launcher.classList.add('is-touching'); });
+    handle?.addEventListener('pointermove', event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; launcher.classList.toggle('is-peeking', dx < -8); });
+    const release = event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const dy = event.clientY - edgeLauncherGesture.y; if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { suppressEdgeLauncherClick = true; setEdgeLauncher(dx < 0); setTimeout(() => { suppressEdgeLauncherClick = false; }, 0); } launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; };
+    handle?.addEventListener('pointerup', release); handle?.addEventListener('pointercancel', event => { launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; suppressEdgeLauncherClick = false; });
+    launcher.querySelector('[data-sl-edge-open-system]')?.addEventListener('click', () => { setEdgeLauncher(false); openInterface(); });
+    document.body.appendChild(launcher); syncEdgeLauncherVisibility();
 }
 
 function noticeIcon(mode) {
@@ -824,17 +862,17 @@ function showPhase(phase) { const overlay = document.getElementById('sl-system-o
 
 async function acceptSystem() {
     const currentContext = context(); if (!currentContext.getCurrentChatId?.()) return systemNotice('warning', 'Open a chat before accepting The System');
-    const state = getState(); state.accepted = true; await persistState(state, 'system-accepted', { detect: false }); showPhase('acknowledgement'); systemNotice('system', 'PLAYER AUTHORIZED', 'Per-chat System record created'); clearTimeout(transitionTimer); transitionTimer = setTimeout(() => { if (document.getElementById('sl-system-overlay')?.classList.contains('is-open')) showPhase('main'); }, 1550);
+    const state = getState(); state.accepted = true; await persistState(state, 'system-accepted', { detect: false }); showPhase('acknowledgement'); syncEdgeLauncherVisibility(); systemNotice('system', 'PLAYER AUTHORIZED', 'Per-chat System record created'); clearTimeout(transitionTimer); transitionTimer = setTimeout(() => { if (document.getElementById('sl-system-overlay')?.classList.contains('is-open')) showPhase('main'); }, 1550);
 }
 
 function declineSystem() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay) return; overlay.classList.add('is-declining'); clearTimeout(transitionTimer); transitionTimer = setTimeout(() => { overlay.classList.remove('is-declining'); closeInterface(); }, 420); }
 
 function openInterface() {
-    try { buildInterface(); const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel'); if (!overlay || !panel) throw new Error('Interface panel unavailable.'); previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); document.getElementById('sl-system-island')?.classList.remove('is-visible'); document.getElementById('sl-system-event-notice')?.classList.remove('is-visible'); const state = getState(); showPhase(state.accepted ? 'main' : 'notification'); requestAnimationFrame(() => panel.focus()); }
+    try { buildInterface(); const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel'); if (!overlay || !panel) throw new Error('Interface panel unavailable.'); previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); setEdgeLauncher(false); syncEdgeLauncherVisibility(); document.getElementById('sl-system-island')?.classList.remove('is-visible'); document.getElementById('sl-system-event-notice')?.classList.remove('is-visible'); const state = getState(); showPhase(state.accepted ? 'main' : 'notification'); requestAnimationFrame(() => panel.focus()); }
     catch (error) { console.error('[The System] Could not open.', error); systemNotice('error', 'The System could not open', error.message); }
 }
 
-function closeInterface() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay?.classList.contains('is-open')) return; closeSubmodals(); clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open'); if (getState().accepted) document.getElementById('sl-system-island')?.classList.add('is-visible'); if (eventNoticeCurrent) document.getElementById('sl-system-event-notice')?.classList.add('is-visible'); positionEventNotice(); if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true }); }
+function closeInterface() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay?.classList.contains('is-open')) return; closeSubmodals(); clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open'); if (islandCurrent) document.getElementById('sl-system-island')?.classList.add('is-visible'); if (eventNoticeCurrent) document.getElementById('sl-system-event-notice')?.classList.add('is-visible'); syncEdgeLauncherVisibility(); positionEventNotice(); if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true }); }
 
 async function upgradeStat(stat) { const state = getState(); if (!Object.hasOwn(state.player.stats, stat) || state.player.statPoints < 1) return; state.player.stats[stat] += 1; state.player.statPoints -= 1; queueAction(state, 'upgrade-stat', `${stat} increased to ${state.player.stats[stat]}`, { stat, value: state.player.stats[stat] }); await persistState(state, 'ui-stat-upgrade'); }
 
@@ -1061,8 +1099,8 @@ function bindSettingControl(id, key, callback) { const control = document.getEle
 
 function rebuildLocalizedInterface() {
     const wasOpen = isInterfaceOpen(); const currentEvent = eventNoticeCurrent;
-    document.getElementById('sl-system-overlay')?.remove(); document.getElementById('sl-system-island')?.remove(); document.getElementById('sl-system-event-notice')?.remove();
-    buildIsland(); if (currentEvent) { eventNoticeBusy = false; eventNoticeCurrent = null; eventNoticeQueue.unshift(currentEvent); playNextEventNotice(); }
+    document.getElementById('sl-system-overlay')?.remove(); document.getElementById('sl-system-island')?.remove(); document.getElementById('sl-system-event-notice')?.remove(); document.getElementById('sl-system-edge-launcher')?.remove();
+    buildIsland(); buildEdgeLauncher(); if (currentEvent) { eventNoticeBusy = false; eventNoticeCurrent = null; eventNoticeQueue.unshift(currentEvent); playNextEventNotice(); }
     buildInterface(); if (wasOpen) openInterface();
 }
 
@@ -1075,20 +1113,21 @@ function observeSettingsDrawer() { if (settingsObserver) return; settingsObserve
 
 function bindChatEvents() {
     const currentContext = context(); if (!currentContext.eventSource?.on || !currentContext.eventTypes) return; const { eventSource, eventTypes } = currentContext;
-    if (eventTypes.CHAT_CHANGED) eventSource.on(eventTypes.CHAT_CHANGED, () => { closeSubmodals(); activeTab = 'status'; updatePrompt(); renderAll(); const state = getState(); if (document.getElementById('sl-system-overlay')?.classList.contains('is-open')) showPhase(state.accepted ? 'main' : 'notification'); if (state.accepted) systemNotice('system', 'SYSTEM ONLINE', `${state.player.name} · Level ${state.player.level}`); });
+    if (eventTypes.CHAT_CHANGED) eventSource.on(eventTypes.CHAT_CHANGED, () => { islandQueue = []; finishIslandNotice(); setEdgeLauncher(false); closeSubmodals(); activeTab = 'status'; updatePrompt(); renderAll(); const state = getState(); if (document.getElementById('sl-system-overlay')?.classList.contains('is-open')) showPhase(state.accepted ? 'main' : 'notification'); syncEdgeLauncherVisibility(); });
     if (eventTypes.MESSAGE_SENT) eventSource.on(eventTypes.MESSAGE_SENT, () => {
-        updatePrompt(); renderAll(); const state = getState(); if (!state.accepted) return;
+        updatePrompt(); renderAll(); const state = getState(); if (!state.accepted) return; setEdgeLauncher(false);
         const latest = [...(context().chat || [])].reverse().find(message => message?.is_user && !message.is_system)?.mes || '';
         const activated = state.skills.find(skill => skill.activationRequired && skill.activationWord && String(latest).toLocaleLowerCase().includes(skill.activationWord.toLocaleLowerCase()));
         if (activated) systemNotice('skill', 'VOICE COMMAND DETECTED', `${activated.name} · “${activated.activationWord}”`, { tab: 'skills', skillId: activated.id });
-        else systemNotice('working', 'SYSTEM MONITORING', 'Waiting for the next reply…');
+        systemNotice('working', 'SYSTEM MONITORING', 'Waiting for the next reply…', { persistent: true, event: false });
     });
-    if (eventTypes.MESSAGE_RECEIVED) eventSource.on(eventTypes.MESSAGE_RECEIVED, processAssistantPatch);
+    if (eventTypes.MESSAGE_RECEIVED) eventSource.on(eventTypes.MESSAGE_RECEIVED, async (...args) => { try { await processAssistantPatch(...args); } finally { finishIslandNotice(); } });
+    for (const eventName of ['GENERATION_STOPPED', 'GENERATION_ABORTED']) if (eventTypes[eventName]) eventSource.on(eventTypes[eventName], finishIslandNotice);
 }
 
 async function initialize() {
     if (initialized) return; initialized = true;
-    try { getSettings(); applyAppearance(); buildIsland(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); const state = getState(); if (state.accepted && context().getCurrentChatId?.()) systemNotice('system', 'SYSTEM ONLINE', `${state.player.name} · Level ${state.player.level}`); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else closeInterface(); } }); window.addEventListener('resize', positionEventNotice, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
+    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', positionEventNotice, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
     catch (error) { initialized = false; console.error('[The System] Failed to initialize.', error); }
 }
 
