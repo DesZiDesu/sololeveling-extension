@@ -4,7 +4,15 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 0.9.0 adds a conditional, fully manageable Summons workspace and temporary skill-driven interface auras while keeping the complete System feature set focused on Solo Leveling role-play.
+Version 1.0.0 is a complete information-first visual redesign. It replaces the accumulated game-HUD styling with a restrained black/violet professional interface, improves mobile reflow, and preserves the full Solo Leveling progression feature set.
+
+- The first per-chat record uses the active SillyTavern user persona as the Player name, while Administrator Mode can still override it later.
+- Status and Scene are formal data dossiers with text codes, clear information hierarchy, accessible meters, labeled records, and far fewer decorative icons or SVGs.
+- Summon records expose HP and MP directly in the registry. Full unit dossiers include condition, authority, mana cost, registration time, experience progression, five combat attributes, abilities, deployment state, and permanent soul dismissal.
+- Equipment is now an informative loadout ledger with slot state, item mechanic, active effects, and summarized attribute bonuses instead of a decorative character silhouette.
+- Item and skill sheets use structured metadata and mechanical-effect grids. Skill aura colors use compact circular wells rather than pill-shaped controls.
+- The response channel, milestone alert, and optional side launcher share one formal visual language. Opening the holographic launcher darkens and softly blurs chat behind animated scan lines and rotating orbital elements.
+- The stylesheet is separated into foundation, interface, notification, and responsive layers so future visual updates stay coherent.
 
 - A multi-message welcome sequence replaces the previous single threatening onboarding message.
 
@@ -44,4 +52,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v0.9.0.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.0.0.
