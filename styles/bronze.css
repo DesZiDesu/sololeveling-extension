@@ -398,7 +398,6 @@
 .sl-vital-card > header small,
 .sl-vital-card > footer { font-size: 6px; }
 
-.sl-vital-track,
 .sl-exp-track,
 .sl-quest-progress,
 .sl-shadow-experience > i,
@@ -411,6 +410,37 @@
         repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(0,0,0,.72) calc(20% - 1px) 20%),
         rgba(0,0,0,.48);
 }
+
+.sl-vital-card.is-hp { --vital-color: 208, 57, 79; }
+.sl-vital-card.is-mp { --vital-color: 89, 98, 224; }
+.sl-vital-track {
+    position: relative;
+    height: 15px;
+    margin: 8px 0 6px;
+    padding: 2px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--vital-color),.46);
+    background: rgba(var(--vital-color),.1);
+}
+.sl-vital-track::before {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    inset: 2px;
+    pointer-events: none;
+    background: repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(0,0,0,.34) calc(20% - 1px) 20%);
+}
+.sl-vital-track i {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: var(--vital-progress);
+    height: 100%;
+    background: linear-gradient(90deg,rgba(var(--vital-color),.7),rgb(var(--vital-color)));
+    box-shadow: inset 0 1px rgba(255,255,255,.2),0 0 10px rgba(var(--vital-color),.28);
+    transition: width .45s ease;
+}
+.sl-vital-track > b { display: none; }
 
 .sl-vital-track i,
 .sl-exp-track i,
@@ -481,11 +511,11 @@
 .sl-objective-list { gap: 4px; margin-top: 8px; }
 
 .sl-skill-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
-.sl-skill-card { grid-template-columns: 72px 1fr; min-height: 120px; }
-.sl-skill-icon-button { min-width: 72px; border-color: var(--sl-line); }
-.sl-skill-icon-button .sl-image-frame { width: 48px; height: 48px; clip-path: none; }
+.sl-skill-card { grid-template-columns: 64px minmax(0,1fr); min-height: 108px; }
+.sl-skill-icon-button { min-width: 64px; border-color: var(--sl-line); }
+.sl-skill-icon-button .sl-image-frame { width: 42px; height: 42px; clip-path: none; }
 .sl-skill-copy { padding: 10px; }
-.sl-skill-copy h4 { margin: 4px 0; font-family: var(--sl-serif); font-size: 17px; }
+.sl-skill-copy h4 { margin: 4px 0; font-family: var(--sl-serif); font-size: 15px; }
 .sl-skill-copy p { font-size: 8px; line-height: 1.45; }
 .sl-mastery-line { margin-top: 8px; }
 
@@ -609,13 +639,24 @@
 .sl-shop-item h4 { font-family: var(--sl-serif); font-size: 16px; }
 .sl-shop-item p { font-size: 8px; }
 
-.sl-position-beacon { grid-template-columns: 64px 1fr 180px; margin-bottom: 8px; padding: 12px; }
+.sl-position-beacon { grid-template-columns: 64px minmax(0,1fr) 180px; margin-bottom: 8px; padding: 12px; }
 .sl-record-code { width: 48px; height: 48px; border-radius: 50%; font-size: 7px; }
-.sl-position-beacon h4 { margin: 3px 0; font-family: var(--sl-serif); font-size: 18px; }
+.sl-position-beacon h4 { margin: 3px 0; overflow-wrap: anywhere; font-family: var(--sl-serif); font-size: 14px; line-height: 1.35; }
 .sl-position-beacon p { font-size: 9px; }
 .sl-scene-grid { grid-template-columns: repeat(4,1fr); gap: 1px; }
 .sl-scene-grid > div { min-height: 62px; padding: 9px; border-color: var(--sl-line); }
-.sl-scene-grid b { font-size: 10px; }
+.sl-scene-grid dt { gap: 5px; font-size: 6px; }
+.sl-scene-grid dd {
+    margin: 7px 0 0;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    color: var(--sl-ink);
+    font-family: var(--sl-font);
+    font-size: 10px;
+    line-height: 1.35;
+    text-overflow: clip;
+    white-space: normal;
+}
 
 .sl-image-frame {
     border-radius: 0;
@@ -821,6 +862,28 @@
     .sl-system-overlay:not([data-layout="desktop"]) .sl-module-heading h3 { font-size: 13px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-grid,
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-grid { grid-template-columns: 1fr; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-card {
+        grid-template-columns: 52px minmax(0,1fr);
+        min-height: 92px;
+    }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button { min-width: 52px; padding: 6px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button .sl-image-frame { width: 34px; height: 34px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-copy { min-width: 0; padding: 8px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-kicker { font-size: 6px; letter-spacing: .11em; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-copy h4 { margin: 3px 0; font-size: 14px; line-height: 1.12; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-copy p {
+        display: -webkit-box;
+        overflow: hidden;
+        font-size: 7px;
+        line-height: 1.4;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-mastery-line { margin-top: 6px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-mastery-line > span { height: 5px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-mastery-line small { font-size: 6px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-state-row { gap: 4px; margin-top: 6px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-state-row strong { min-height: 25px; padding: 4px 6px; font-size: 6px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-overview { grid-template-columns: 108px 1fr; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-overview > dl {
         grid-column: 1/-1;
@@ -845,8 +908,17 @@
     }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-shop-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-scene-grid { grid-template-columns: repeat(2,1fr); }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon { grid-template-columns: 50px 1fr; }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon > aside { grid-column: 1/-1; border-top: 1px solid var(--sl-line); border-left: 0; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon { grid-template-columns: 44px minmax(0,1fr); gap: 9px; padding: 9px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-record-code { width: 40px; height: 40px; font-size: 7px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon h4 { font-size: 12px; line-height: 1.35; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon p { font-size: 7px; line-height: 1.45; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon p b { margin: 0 3px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-position-beacon > aside { grid-column: 1/-1; padding: 7px 0 0; border-top: 1px solid var(--sl-line); border-left: 0; text-align: left; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-scene-card > header { padding: 9px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-scene-card h4 { font-size: 13px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-scene-grid > div { min-height: 54px; padding: 7px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-scene-grid dd { margin-top: 5px; font-size: 9px; line-height: 1.35; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-vital-track { height: 13px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-submodal { padding: 0; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-item-sheet,
     .sl-system-overlay:not([data-layout="desktop"]) .sl-guide-card,
@@ -865,6 +937,9 @@
     .sl-system-overlay:not([data-layout="desktop"]) .sl-player-identity p { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-identity-tags span:nth-child(3) { display: none; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-attribute-copy small { display: none; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-card { grid-template-columns: 46px minmax(0,1fr); }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button { min-width: 46px; padding: 5px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button .sl-image-frame { width: 30px; height: 30px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-quest-card { grid-template-columns: 64px 1fr; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-overview-copy p { display: none; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-shop-grid { grid-template-columns: 1fr; }

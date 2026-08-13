@@ -4,13 +4,14 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.1.0 replaces the previous oversized violet dashboard with a compact obsidian-and-antique-bronze game dossier based on dense in-chat record interfaces. PC and mobile now use deliberately different compositions rather than one layout merely shrinking at narrow widths.
+Version 1.1.1 refines the compact obsidian-and-antique-bronze game dossier with smaller mobile skill records, readable wrapping Scene data, and substantial filled HP/MP meters. PC and mobile use deliberately different compositions rather than one layout merely shrinking at narrow widths.
 
 - The first per-chat record uses the active SillyTavern user persona as the Player name, while Administrator Mode can still override it later.
 - Status and Scene use narrow record headers, compact labeled fields, segmented meters, and restrained bronze hierarchy with far fewer decorative icons or SVGs.
 - Summon records expose HP and MP directly in the registry. Every unit now has its own user-selectable portrait; the fallback seal uses the first letter of species, race, or name plus the unit rank.
 - Equipment is now an informative loadout ledger with slot state, item mechanic, active effects, and summarized attribute bonuses instead of a decorative character silhouette.
 - Item and skill sheets use structured metadata and mechanical-effect grids. Skill aura colors use compact circular wells rather than pill-shaped controls.
+- Pure summoning skills no longer receive interface-aura controls. Only real buff, enhancement, aura, and domain skills can temporarily recolor the interface.
 - The response channel, milestone alert, and optional side launcher share the same restrained bronze-black visual language. Opening the launcher still darkens and softly blurs chat behind animated scan lines and orbital elements.
 - The stylesheet is separated into foundation, interface, notification, and responsive layers so future visual updates stay coherent.
 
@@ -46,7 +47,7 @@ Version 1.1.0 replaces the previous oversized violet dashboard with a compact ob
 
 ## Live preview
 
-Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.1.0 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.1.1 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
 
 ## Installation
 
@@ -56,4 +57,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.1.0.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.1.1.

@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '1.1.0';
+const UI_VERSION = '1.1.1';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -355,7 +355,7 @@ function normalizeScene(source = {}) {
     return {
         date: text(source.date, defaults.date, 80), day: text(source.day, defaults.day, 80), dayCount: number(source.dayCount, defaults.dayCount, 0, 999999),
         year: text(source.year, defaults.year, 80), time: text(source.time, defaults.time, 80), period: text(source.period, defaults.period, 80),
-        place: text(source.place, defaults.place, 120), location: text(source.location, defaults.location, 160), position: text(source.position, defaults.position, 160),
+        place: text(source.place, defaults.place, 160), location: text(source.location, defaults.location, 240), position: text(source.position, defaults.position, 320),
         temperature: text(source.temperature, defaults.temperature, 80), weather: text(source.weather, defaults.weather, 100), season: text(source.season, defaults.season, 100),
     };
 }
@@ -367,7 +367,15 @@ function normalizeSkill(source = {}) {
     const summoning = shadowExtraction || isSummoningSkill(source);
     const activationWords = [...new Set((Array.isArray(source.activationWords) ? source.activationWords : [source.activationWord]).map(value => text(value, '', 80)).filter(Boolean))].slice(0, 10);
     const buffSource = source.buff && typeof source.buff === 'object' ? source.buff : {};
-    const buffing = Boolean(source.buffing || source.aura || Object.keys(buffSource).length || BUFF_PATTERN.test(`${name} ${source.type || ''} ${source.description || ''}`));
+    const skillSummary = `${name} ${source.type || ''} ${source.description || ''}`;
+    const auraSemantic = BUFF_PATTERN.test(skillSummary);
+    const explicitAura = source.aura === true || source.interfaceAura === true;
+    // Older builds normalized a `buff` object onto every skill. Do not interpret
+    // that object—or a stale `buffing` flag on a pure summon—as aura support.
+    const buffing = summoning
+        ? Boolean(auraSemantic || explicitAura)
+        : Boolean(auraSemantic || explicitAura || source.buffing === true || buffSource.enabled === true);
+    const shadowAura = buffing && /shadow/i.test(skillSummary);
     return {
         id: text(source.id, uid('skill'), 100), name, rank: text(source.rank, 'E', 20),
         type: text(source.type, 'Active', 30), description: text(source.description, 'No skill description recorded.', 1200),
@@ -381,9 +389,9 @@ function normalizeSkill(source = {}) {
         buffing,
         buff: {
             enabled: Boolean(buffSource.enabled),
-            auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#8b5cf6' : '#b9913f'),
-            backgroundColor: hexColor(buffSource.backgroundColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#10081f' : '#0d0a07'),
-            particleColor: hexColor(buffSource.particleColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#c4a7ff' : '#c7a65b'),
+            auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowAura ? '#8b5cf6' : '#b9913f'),
+            backgroundColor: hexColor(buffSource.backgroundColor, shadowAura ? '#10081f' : '#0d0a07'),
+            particleColor: hexColor(buffSource.particleColor, shadowAura ? '#c4a7ff' : '#c7a65b'),
             durationSeconds: number(buffSource.durationSeconds, 60, 5, 86400), cooldownSeconds: number(buffSource.cooldownSeconds, 120, 0, 604800),
             mpDrain: number(buffSource.mpDrain, 5, 0, 999999), expiresAt: text(buffSource.expiresAt, '', 80), cooldownUntil: text(buffSource.cooldownUntil, '', 80),
         },
