@@ -4,7 +4,7 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
-Version 0.6.1 adds automatic per-response System checks, UI-only notifications, usable/equippable shop items with gameplay effects, guaranteed quest EXP with one-of-three item rewards, and English/Thai interface support.
+Version 0.6.2 adds automatic per-response System checks, UI-only notifications, usable/equippable shop items with reversible equipment stat bonuses, guaranteed quest EXP with one-of-three item rewards, legacy reward-pool repair, and English/Thai interface support.
 
 - Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
 - Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation.

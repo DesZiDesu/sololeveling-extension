@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.6.1';
+const UI_VERSION = '0.6.2';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -44,7 +44,7 @@ const I18N = {
         authorized_exchange: 'AUTHORIZED EXCHANGE', refill: 'REFILL RANDOM ITEMS', search: 'SEARCH', shop_empty: 'Shop inventory unavailable',
         player_interface: 'PLAYER INTERFACE', guide: 'GUIDE', sync: 'SYNC LATEST TURN', pending_actions: 'PENDING ACTIONS',
         player_identification: 'PLAYER IDENTIFICATION', edit: 'EDIT', rank: 'RANK', level: 'LEVEL', experience: 'EXPERIENCE', until_level: 'EXP until next level', ability_matrix: 'ABILITY MATRIX', attributes: 'Attributes', available_points: 'AVAILABLE POINTS', system_record: 'SYSTEM RECORD', current_data: 'Current Data', active_missions: 'Active Missions', acquired_skills: 'Acquired Skills', stored_items: 'Stored Items',
-        equipped_effects: 'EQUIPPED EFFECTS', loadout_summary: 'Loadout Summary', empty: 'EMPTY', no_equipment: 'No equipment is currently registered.', date: 'DATE', day: 'DAY', year: 'YEAR', time: 'TIME', place: 'PLACE', location: 'LOCATION', position: 'POSITION', temperature: 'TEMPERATURE', weather: 'WEATHER', season: 'SEASON',
+        equipped_effects: 'EQUIPPED EFFECTS', loadout_summary: 'Loadout Summary', empty: 'EMPTY', no_equipment: 'No equipment is currently registered.', generate_rewards: 'GENERATE 3 REWARD CHOICES', generating_rewards: 'GENERATING REWARDS…', reward_pool_missing: 'This older mission needs a three-item reward pool before it can be claimed.', date: 'DATE', day: 'DAY', year: 'YEAR', time: 'TIME', place: 'PLACE', location: 'LOCATION', position: 'POSITION', temperature: 'TEMPERATURE', weather: 'WEATHER', season: 'SEASON',
     },
     th: {
         tab_status: 'สถานะ', tab_missions: 'ภารกิจ', tab_skills: 'สกิล', tab_inventory: 'คลัง', tab_equipment: 'อุปกรณ์', tab_shop: 'ร้านค้าระบบ', tab_scene: 'ฉาก',
@@ -57,7 +57,7 @@ const I18N = {
         authorized_exchange: 'ศูนย์แลกเปลี่ยนที่ได้รับอนุญาต', refill: 'สุ่มไอเทมใหม่', search: 'ค้นหา', shop_empty: 'ไม่มีสินค้าในร้านระบบ',
         player_interface: 'หน้าต่างผู้เล่น', guide: 'คู่มือ', sync: 'ซิงก์คำตอบล่าสุด', pending_actions: 'คำสั่งที่รอดำเนินการ',
         player_identification: 'ข้อมูลประจำตัวผู้เล่น', edit: 'แก้ไข', rank: 'แรงก์', level: 'เลเวล', experience: 'ค่าประสบการณ์', until_level: 'EXP ก่อนถึงเลเวลถัดไป', ability_matrix: 'ตารางความสามารถ', attributes: 'ค่าสถานะ', available_points: 'แต้มที่ใช้ได้', system_record: 'บันทึกระบบ', current_data: 'ข้อมูลปัจจุบัน', active_missions: 'ภารกิจที่ทำอยู่', acquired_skills: 'สกิลที่ได้รับ', stored_items: 'ไอเทมที่เก็บไว้',
-        equipped_effects: 'เอฟเฟกต์อุปกรณ์', loadout_summary: 'สรุปชุดอุปกรณ์', empty: 'ว่าง', no_equipment: 'ยังไม่มีอุปกรณ์ที่สวมใส่', date: 'วันที่', day: 'วัน', year: 'ปี', time: 'เวลา', place: 'สถานที่', location: 'ตำแหน่ง', position: 'จุดที่ยืน', temperature: 'อุณหภูมิ', weather: 'สภาพอากาศ', season: 'ฤดูกาล',
+        equipped_effects: 'เอฟเฟกต์อุปกรณ์', loadout_summary: 'สรุปชุดอุปกรณ์', empty: 'ว่าง', no_equipment: 'ยังไม่มีอุปกรณ์ที่สวมใส่', generate_rewards: 'สร้างตัวเลือกรางวัล 3 ชิ้น', generating_rewards: 'กำลังสร้างรางวัล…', reward_pool_missing: 'ภารกิจเก่านี้ต้องสร้างตัวเลือกไอเทมรางวัล 3 ชิ้นก่อนรับรางวัล', date: 'วันที่', day: 'วัน', year: 'ปี', time: 'เวลา', place: 'สถานที่', location: 'ตำแหน่ง', position: 'จุดที่ยืน', temperature: 'อุณหภูมิ', weather: 'สภาพอากาศ', season: 'ฤดูกาล',
     },
 };
 
@@ -112,6 +112,7 @@ let selectedShadowId = '';
 let imageEditorTarget = null;
 let imageEditorDraft = null;
 let shopGenerating = false;
+let questRewardGenerating = false;
 let smartFallbackBusy = false;
 let imageGesture = null;
 
@@ -735,16 +736,41 @@ function closeInterface() { const overlay = document.getElementById('sl-system-o
 
 async function upgradeStat(stat) { const state = getState(); if (!Object.hasOwn(state.player.stats, stat) || state.player.statPoints < 1) return; state.player.stats[stat] += 1; state.player.statPoints -= 1; queueAction(state, 'upgrade-stat', `${stat} increased to ${state.player.stats[stat]}`, { stat, value: state.player.stats[stat] }); await persistState(state, 'ui-stat-upgrade'); }
 
-async function equipItem(itemId) { const state = getState(); const item = state.inventory.find(entry => entry.id === itemId); if (!item) return; const slot = item.slot || inferSlot(item.category, item.name, item.description); if (!slot || !Object.hasOwn(state.equipment, slot)) return systemNotice('warning', 'This item cannot be equipped', item.category); item.slot = slot; state.equipment[slot] = item.id; queueAction(state, 'equip-item', `Equipped ${item.name} in ${slot}`, { itemId: item.id, slot }); await persistState(state, 'ui-equip'); closeSubmodals(); systemNotice('equipment', 'ITEM EQUIPPED', item.name); }
-async function unequipSlot(slot) { const state = getState(); const item = state.inventory.find(entry => entry.id === state.equipment[slot]); if (!item) return; state.equipment[slot] = null; queueAction(state, 'unequip-item', `Unequipped ${item.name} from ${slot}`, { itemId: item.id, slot }); await persistState(state, 'ui-unequip'); systemNotice('equipment', 'ITEM UNEQUIPPED', item.name); }
+function adjustEquipmentStats(state, item, direction) {
+    if (!item) return;
+    for (const stat of Object.keys(state.player.stats)) {
+        const bonus = number(item.effects?.stats?.[stat], 0) * direction;
+        if (bonus) state.player.stats[stat] = Math.max(0, state.player.stats[stat] + bonus);
+    }
+}
+
+async function equipItem(itemId) {
+    const state = getState(); const item = state.inventory.find(entry => entry.id === itemId); if (!item) return;
+    const slot = item.slot || inferSlot(item.category, item.name, item.description);
+    if (!slot || !Object.hasOwn(state.equipment, slot)) return systemNotice('warning', 'This item cannot be equipped', item.category);
+    if (state.equipment[slot] === item.id) return systemNotice('equipment', 'ITEM ALREADY EQUIPPED', item.name);
+    const replaced = state.inventory.find(entry => entry.id === state.equipment[slot]);
+    adjustEquipmentStats(state, replaced, -1); item.slot = slot; state.equipment[slot] = item.id; adjustEquipmentStats(state, item, 1);
+    queueAction(state, 'equip-item', `Equipped ${item.name} in ${slot}${replaced ? `, replacing ${replaced.name}` : ''}`, { itemId: item.id, slot, replacedItemId: replaced?.id || null, statBonuses: item.effects.stats });
+    await persistState(state, 'ui-equip'); closeSubmodals(); systemNotice('equipment', 'ITEM EQUIPPED', replaced ? `${item.name} · Replaced ${replaced.name}` : item.name);
+}
+
+async function unequipSlot(slot) {
+    const state = getState(); const item = state.inventory.find(entry => entry.id === state.equipment[slot]); if (!item) return;
+    adjustEquipmentStats(state, item, -1); state.equipment[slot] = null;
+    queueAction(state, 'unequip-item', `Unequipped ${item.name} from ${slot}`, { itemId: item.id, slot, removedStatBonuses: item.effects.stats });
+    await persistState(state, 'ui-unequip'); systemNotice('equipment', 'ITEM UNEQUIPPED', item.name);
+}
 
 async function useItem(itemId) {
     const state = getState(); const item = state.inventory.find(entry => entry.id === itemId); if (!item || item.quantity < 1) return; if (!item.usable) return systemNotice('warning', 'Item cannot be consumed', item.name);
-    item.quantity -= 1; state.player.hp = Math.min(state.player.maxHp, Math.max(0, state.player.hp + item.effects.hp)); state.player.mp = Math.min(state.player.maxMp, Math.max(0, state.player.mp + item.effects.mp));
+    item.quantity -= 1; const equippedSlot = Object.keys(state.equipment).find(slot => state.equipment[slot] === item.id);
+    if (item.quantity === 0 && equippedSlot) adjustEquipmentStats(state, item, -1);
+    state.player.hp = Math.min(state.player.maxHp, Math.max(0, state.player.hp + item.effects.hp)); state.player.mp = Math.min(state.player.maxMp, Math.max(0, state.player.mp + item.effects.mp));
     state.player.fatigue = Math.max(0, state.player.fatigue + item.effects.fatigue);
     if (item.effects.cure || item.effects.detoxify) state.player.condition = 'Stable';
     for (const stat of Object.keys(state.player.stats)) state.player.stats[stat] = Math.max(0, state.player.stats[stat] + number(item.effects.stats?.[stat], 0));
-    if (item.quantity === 0) { state.inventory = state.inventory.filter(entry => entry.id !== item.id); for (const slot of Object.keys(state.equipment)) if (state.equipment[slot] === item.id) state.equipment[slot] = null; }
+    if (item.quantity === 0) { state.inventory = state.inventory.filter(entry => entry.id !== item.id); if (equippedSlot) state.equipment[equippedSlot] = null; }
     queueAction(state, 'use-item', `Used ${item.name}`, { itemId: item.id, effects: item.effects }); await persistState(state, 'ui-use-item'); closeSubmodals(); systemNotice('item', 'ITEM USED', item.name);
 }
 
@@ -776,13 +802,37 @@ function showItemModal(itemId) {
     modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet"><header><span>ITEM INFORMATION</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-item-sheet-hero">${imageFrame(item.icon, item.category, 'is-large')}<div><span>${html(item.rarity)} · ${html(item.category)}</span><h3>${html(item.name)}</h3><p>Quantity: ${item.quantity}</p></div></div><section><h4>DESCRIPTION</h4><p>${html(item.description)}</p></section><section><h4>EFFECT</h4><p>${html(itemEffectSummary(item))}</p></section><footer>${owned ? `<button type="button" data-sl-action="edit-item-image"><i class="fa-solid fa-image"></i> ${t('image')}</button>${item.usable ? `<button type="button" data-sl-action="use-item">${t('use')}</button>` : ''}${equippedSlot ? `<button type="button" data-sl-unequip="${html(equippedSlot)}">${t('unequip')}</button>` : canEquip ? `<button type="button" data-sl-action="equip-item">${t('equip')}</button>` : ''}` : `<button type="button" data-sl-buy="${html(item.id)}" ${state.currency.amount < item.price ? 'disabled' : ''}>${t('buy')} · ${item.price} ${html(state.currency.symbol)}</button>`}</footer></article>`; modal.hidden = false;
 }
 
+function questRewardPrompt(quest) {
+    return `Generate exactly 3 different item reward choices for this Solo Leveling-style mission. The player will choose only one and also receive ${quest.experienceReward} EXP. Match the mission difficulty, player level, and story language. Every item needs a useful mechanic and complete fields. Return only JSON: {"rewardOptions":[{"id":"unique-reward-id","type":"item","name":"...","amount":1,"item":{"id":"unique-item-id","name":"...","category":"Weapon|Armor|Gear|Potion|Consumable|Material|Misc","rarity":"Common|Uncommon|Rare|Epic|Legendary","quantity":1,"description":"...","price":0,"slot":"weapon|head|chest|hands|legs|feet|accessory|","usable":false,"effects":{"hp":0,"mp":0,"fatigue":0,"cure":false,"detoxify":false,"stats":{"strength":0,"agility":0,"vitality":0,"intelligence":0,"perception":0},"description":"..."}}}]}. Equippable items require a valid slot; consumables require usable:true and a meaningful effect. Mission: ${JSON.stringify(quest)}. Player: ${JSON.stringify(getState().player)}. No Markdown.`;
+}
+
+async function generateQuestRewardOptions(questId) {
+    const currentContext = context(); const quest = getState().quests.find(entry => entry.id === questId);
+    if (!quest || questRewardGenerating) return;
+    if (typeof currentContext.generateQuietPrompt !== 'function') return systemNotice('error', 'Reward generation unavailable', 'Active provider does not expose quiet generation');
+    questRewardGenerating = true; showQuestModal(quest.id, true); systemNotice('working', t('generating_rewards'), quest.title);
+    try {
+        const response = await generateQuiet(questRewardPrompt(quest), 1800); const parsed = parseModelJson(response);
+        const raw = Array.isArray(parsed) ? parsed : parsed?.rewardOptions;
+        const options = Array.isArray(raw) ? raw.map((entry, index) => normalizeReward((entry?.item || entry?.type === 'item') ? entry : { id: entry?.id, type: 'item', name: entry?.name, amount: entry?.quantity || 1, item: entry }, index)).filter(option => option?.item) : [];
+        const unique = options.filter((option, index, list) => list.findIndex(other => other.item.name.toLowerCase() === option.item.name.toLowerCase()) === index).slice(0, 3);
+        if (unique.length !== 3) throw new Error('The model did not return three different valid item rewards. Try again.');
+        const state = getState(); const liveQuest = state.quests.find(entry => entry.id === quest.id); if (!liveQuest) return;
+        liveQuest.rewardOptions = unique; selectedQuestRewardId = '';
+        await persistState(state, 'quest-reward-pool-generation', { detect: false });
+        systemNotice('reward', 'REWARD POOL READY', `${quest.title} · ${unique.length} choices`, { tab: 'quest', questId: quest.id });
+    } catch (error) { console.error('[The System] Reward generation failed.', error); systemNotice('error', 'REWARD GENERATION FAILED', error.message); }
+    finally { questRewardGenerating = false; if (selectedQuestId === quest.id && isInterfaceOpen()) showQuestModal(quest.id, true); }
+}
+
 function showQuestModal(questId, preserveSelection = false) {
     const quest = getState().quests.find(entry => entry.id === questId); if (!quest) return;
     if (!preserveSelection || selectedQuestId !== quest.id) selectedQuestRewardId = quest.claimedRewardId || '';
     selectedQuestId = quest.id; const modal = document.getElementById('sl-item-modal'); if (!modal) return;
     const claimable = quest.status.toLowerCase() === 'completed' && !quest.rewardClaimed;
     const options = quest.rewardOptions.map(option => { const selected = selectedQuestRewardId === option.id; return `<button type="button" class="sl-reward-option${selected ? ' is-selected' : ''}" data-sl-reward-option="${html(option.id)}" ${quest.rewardClaimed ? 'disabled' : ''}>${imageFrame(option.item.icon, option.item.category)}<span><b>${html(option.item.name)}${option.amount > 1 ? ` ×${option.amount}` : ''}</b><small>${html(itemEffectSummary(option.item))}</small></span><strong>${selected ? t('selected') : t('select')}</strong></button>`; }).join('');
-    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-quest-sheet"><header><span>${t('mission_brief')}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-quest-sheet-hero"><span><i class="fa-solid ${quest.daily ? 'fa-clock' : 'fa-scroll'}"></i></span><div><em>${quest.daily ? t('daily_protocol') : html(quest.type)}</em><h3>${html(quest.title)}</h3><p>${html(quest.status)} · ${questProgress(quest)}%</p></div></div><section><h4>${t('mission_brief')}</h4><p>${html(quest.description)}</p></section><section><h4>${t('objectives')}</h4><div class="sl-objective-list">${quest.objectives.map(objective => `<article class="${objective.completed ? 'is-complete' : ''}"><i class="fa-solid ${objective.completed ? 'fa-circle-check' : 'fa-crosshairs'}"></i><span><b>${html(objective.label)}</b><small>${objective.current} / ${objective.goal}${objective.unit ? ` ${html(objective.unit)}` : ''}</small></span><strong>${percent(objective.current, objective.goal)}%</strong></article>`).join('')}</div></section><section><h4>${t('rewards')}</h4><div class="sl-guaranteed-exp"><i class="fa-solid fa-arrow-trend-up"></i><span><b>${t('guaranteed_exp')}</b><small>+${quest.experienceReward} EXP</small></span></div><h5 class="sl-reward-choice-title">${t('choose_one')}</h5><div class="sl-reward-options">${options || '<p class="sl-muted-copy">Reward choices will be generated on the next System update.</p>'}</div></section>${quest.daily ? `<section class="sl-penalty-line"><i class="fa-solid fa-triangle-exclamation"></i><span><b>${t('deadline')}</b> ${html(quest.deadline)}<br><b>${t('penalty')}</b> ${html(quest.penalty.description)}</span></section>` : ''}<footer><button type="button" data-sl-action="close-modal">${t('close')}</button>${claimable ? `<button type="button" class="sl-primary-action" data-sl-action="claim-quest" ${quest.rewardOptions.length !== 3 || !selectedQuestRewardId ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> ${t('claim_rewards')}</button>` : quest.rewardClaimed ? `<button type="button" disabled><i class="fa-solid fa-check"></i> ${t('rewards_claimed')}</button>` : ''}</footer></article>`;
+    const rewardPool = quest.rewardOptions.length === 3 ? options : `<div class="sl-reward-repair"><p>${t('reward_pool_missing')}</p><button type="button" data-sl-action="generate-quest-rewards" ${questRewardGenerating ? 'disabled' : ''}><i class="fa-solid ${questRewardGenerating ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}"></i> ${questRewardGenerating ? t('generating_rewards') : t('generate_rewards')}</button></div>`;
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-quest-sheet"><header><span>${t('mission_brief')}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-quest-sheet-hero"><span><i class="fa-solid ${quest.daily ? 'fa-clock' : 'fa-scroll'}"></i></span><div><em>${quest.daily ? t('daily_protocol') : html(quest.type)}</em><h3>${html(quest.title)}</h3><p>${html(quest.status)} · ${questProgress(quest)}%</p></div></div><section><h4>${t('mission_brief')}</h4><p>${html(quest.description)}</p></section><section><h4>${t('objectives')}</h4><div class="sl-objective-list">${quest.objectives.map(objective => `<article class="${objective.completed ? 'is-complete' : ''}"><i class="fa-solid ${objective.completed ? 'fa-circle-check' : 'fa-crosshairs'}"></i><span><b>${html(objective.label)}</b><small>${objective.current} / ${objective.goal}${objective.unit ? ` ${html(objective.unit)}` : ''}</small></span><strong>${percent(objective.current, objective.goal)}%</strong></article>`).join('')}</div></section><section><h4>${t('rewards')}</h4><div class="sl-guaranteed-exp"><i class="fa-solid fa-arrow-trend-up"></i><span><b>${t('guaranteed_exp')}</b><small>+${quest.experienceReward} EXP</small></span></div><h5 class="sl-reward-choice-title">${t('choose_one')}</h5><div class="sl-reward-options">${rewardPool}</div></section>${quest.daily ? `<section class="sl-penalty-line"><i class="fa-solid fa-triangle-exclamation"></i><span><b>${t('deadline')}</b> ${html(quest.deadline)}<br><b>${t('penalty')}</b> ${html(quest.penalty.description)}</span></section>` : ''}<footer><button type="button" data-sl-action="close-modal">${t('close')}</button>${claimable ? `<button type="button" class="sl-primary-action" data-sl-action="claim-quest" ${quest.rewardOptions.length !== 3 || !selectedQuestRewardId ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> ${t('claim_rewards')}</button>` : quest.rewardClaimed ? `<button type="button" disabled><i class="fa-solid fa-check"></i> ${t('rewards_claimed')}</button>` : ''}</footer></article>`;
     modal.hidden = false;
 }
 
@@ -886,7 +936,7 @@ function closeSubmodals() { document.querySelectorAll('.sl-submodal').forEach(mo
 function handleInterfaceClick(event) {
     const pressed = event.target.closest('button, .sl-shop-item, .sl-quest-card'); if (pressed) { pressed.classList.remove('sl-pressed'); requestAnimationFrame(() => pressed.classList.add('sl-pressed')); setTimeout(() => pressed.classList.remove('sl-pressed'), 360); }
     const action = event.target.closest('[data-sl-action]')?.dataset.slAction; const tab = event.target.closest('[data-sl-tab]')?.dataset.slTab; const item = event.target.closest('[data-sl-item]')?.dataset.slItem; const quest = event.target.closest('[data-sl-quest]')?.dataset.slQuest; const rewardOption = event.target.closest('[data-sl-reward-option]')?.dataset.slRewardOption; const skill = event.target.closest('[data-sl-skill]')?.dataset.slSkill; const skillImage = event.target.closest('[data-sl-skill-image]')?.dataset.slSkillImage; const shadow = event.target.closest('[data-sl-shadow]')?.dataset.slShadow; const preset = event.target.closest('[data-sl-preset]')?.dataset.slPreset; const upgrade = event.target.closest('[data-sl-upgrade]')?.dataset.slUpgrade; const buy = event.target.closest('[data-sl-buy]')?.dataset.slBuy; const unequip = event.target.closest('[data-sl-unequip]')?.dataset.slUnequip; const pager = event.target.closest('[data-sl-page]');
-    if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
+    if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'generate-quest-rewards') generateQuestRewardOptions(selectedQuestId); else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
 }
 
 function handleInterfaceSubmit(event) {

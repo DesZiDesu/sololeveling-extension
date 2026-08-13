@@ -543,6 +543,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .sl-reward-option small { margin-top: .12rem; color: var(--sl-system-muted); font-size: .46rem; }
 .sl-reward-option strong { padding: .28rem .4rem; color: var(--sl-system-accent); border: 1px solid var(--sl-system-line); font-size: .45rem; letter-spacing: .08em; }
 .sl-reward-option.is-selected { background: rgba(var(--sl-system-accent-rgb),.1); border-color: var(--sl-system-accent); box-shadow: inset 0 0 20px rgba(var(--sl-system-accent-rgb),.06); }
+.sl-reward-repair { display: grid; justify-items: start; gap: .5rem; padding: .65rem; color: var(--sl-system-muted); background: rgba(var(--sl-system-accent-rgb),.045); border: 1px dashed var(--sl-system-line); font-size: .5rem; line-height: 1.45; }
+.sl-reward-repair p { margin: 0; }
+.sl-reward-repair button { min-height: 38px; padding: .5rem .65rem; color: #03101b; background: var(--sl-system-accent); border: 0; cursor: pointer; font-size: .5rem; letter-spacing: .08em; }
+.sl-reward-repair button:disabled { cursor: wait; opacity: .6; }
 
 .sl-skill-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .58rem; }
 .sl-skill-card { display: grid; grid-template-columns: 88px minmax(0,1fr); min-width: 0; background: linear-gradient(135deg,rgba(var(--sl-system-accent-rgb),.09),rgba(2,13,25,.86)); border: 1px solid var(--sl-system-line-soft); }
