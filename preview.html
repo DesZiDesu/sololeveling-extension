@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>The System — Layout Preview</title>
+    <style>
+        :root { color-scheme: dark; --accent:#b9913f; --line:rgba(185,145,63,.3); --ink:#e7dfcf; --muted:#82796b; }
+        * { box-sizing:border-box; }
+        html,body { margin:0; min-height:100%; background:#080604; color:var(--ink); font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+        body { background:radial-gradient(circle at 50% -10%,rgba(185,145,63,.12),transparent 42%),repeating-linear-gradient(0deg,transparent 0 5px,rgba(185,145,63,.012) 6px),#080604; }
+        button,a { font:inherit; }
+        .preview-shell { width:min(1600px,100%); margin:auto; padding:clamp(14px,3vw,38px); }
+        .preview-header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding-bottom:20px; border-bottom:1px solid rgba(255,255,255,.1); }
+        .eyebrow { display:block; color:var(--accent); font-size:9px; font-weight:800; letter-spacing:.2em; }
+        h1 { margin:7px 0 0; font-family:Georgia,serif; font-size:clamp(31px,6vw,58px); font-weight:500; line-height:1; }
+        .version { flex:0 0 auto; padding:8px 10px; border-left:2px solid var(--accent); background:rgba(185,145,63,.06); color:#d0b56f; font-size:9px; font-weight:800; letter-spacing:.13em; }
+        .preview-copy { max-width:780px; margin:18px 0; color:var(--muted); font-size:12px; line-height:1.65; }
+        .controls { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; margin-bottom:12px; }
+        .control-group { display:flex; gap:6px; min-width:0; overflow-x:auto; scrollbar-width:none; }
+        .control-group::-webkit-scrollbar { display:none; }
+        .control-label { align-self:center; margin-right:5px; color:var(--muted); font-size:8px; font-weight:800; letter-spacing:.12em; white-space:nowrap; }
+        .control { min-height:42px; padding:0 13px; border:1px solid rgba(255,255,255,.1); border-radius:2px; background:rgba(255,255,255,.025); color:#aaa4b7; font-size:9px; font-weight:800; letter-spacing:.08em; white-space:nowrap; cursor:pointer; }
+        .control:hover,.control:focus-visible,.control.is-active { outline:0; border-color:var(--line); background:rgba(185,145,63,.09); color:var(--accent); }
+        .viewport-readout { min-width:100px; color:var(--muted); font-size:8px; font-weight:800; letter-spacing:.1em; text-align:right; }
+        .module-controls { margin-bottom:14px; padding:9px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.015); }
+        .stage { position:relative; min-height:260px; padding:18px; overflow:auto; border:1px solid var(--line); background:radial-gradient(circle at 50% 50%,rgba(185,145,63,.05),transparent 55%),#0b0805; box-shadow:0 25px 80px rgba(0,0,0,.46); }
+        .frame-holder { position:relative; margin:0 auto; transition:width .25s,height .25s; }
+        #preview-frame { position:absolute; top:0; left:50%; display:block; border:1px solid rgba(185,145,63,.25); background:#0b0805; transform-origin:top center; box-shadow:0 18px 60px rgba(0,0,0,.55); }
+        .comparison { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+        .comparison article { padding:16px; border:1px solid rgba(255,255,255,.09); background:rgba(255,255,255,.018); }
+        .comparison header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+        .comparison h2 { margin:0; font-size:14px; letter-spacing:.08em; }
+        .comparison header span { color:var(--accent); font-size:8px; font-weight:800; }
+        .comparison ul { margin:0; padding-left:17px; color:var(--muted); font-size:10px; line-height:1.75; }
+        .preview-footer { display:flex; justify-content:space-between; gap:15px; margin-top:20px; padding-top:14px; border-top:1px solid rgba(255,255,255,.08); color:var(--muted); font-size:8px; letter-spacing:.08em; }
+        .preview-footer a { color:var(--accent); text-decoration:none; }
+        @media(max-width:760px) {
+            .preview-shell { padding:12px; }
+            .preview-header { align-items:flex-start; }
+            .controls { grid-template-columns:1fr auto; }
+            .controls > .control-group:nth-child(2) { grid-column:1 / -1; grid-row:2; }
+            .stage { padding:8px; }
+            .comparison { grid-template-columns:1fr; }
+            .preview-footer { display:grid; }
+        }
+    </style>
+</head>
+<body>
+    <main class="preview-shell">
+        <header class="preview-header">
+            <div><span class="eyebrow">INTERACTIVE RELEASE PREVIEW</span><h1>The System</h1></div>
+            <span class="version">v1.1.0</span>
+        </header>
+        <p class="preview-copy">This page runs the real extension interface with demonstration data. Choose a device width, then switch between modules and overlays to compare the desktop composition with the mobile reflow.</p>
+
+        <section class="controls" aria-label="Preview controls">
+            <div class="control-group" data-group="device">
+                <span class="control-label">DEVICE</span>
+                <button class="control is-active" type="button" data-device="desktop">PC</button>
+                <button class="control" type="button" data-device="mobile">MOBILE</button>
+            </div>
+            <div class="control-group" data-group="scale">
+                <span class="control-label">VIEW</span>
+                <button class="control is-active" type="button" data-scale="fit">FIT</button>
+                <button class="control" type="button" data-scale="actual">1:1 SIZE</button>
+            </div>
+            <output id="viewport-readout" class="viewport-readout">1440 × 960</output>
+        </section>
+
+        <nav class="control-group module-controls" aria-label="Interface view">
+            <span class="control-label">MODULE</span>
+            <button class="control is-active" type="button" data-view="status">STATUS</button>
+            <button class="control" type="button" data-view="summons">SUMMONS</button>
+            <button class="control" type="button" data-view="equipment">EQUIPMENT</button>
+            <button class="control" type="button" data-view="aura">AURA SKILL</button>
+            <button class="control" type="button" data-view="shadow">SHADOW DOSSIER</button>
+            <button class="control" type="button" data-view="sidebar">SIDEBAR</button>
+            <button class="control" type="button" data-view="island">RESPONSE</button>
+            <button class="control" type="button" data-view="alert">ALERT</button>
+        </nav>
+
+        <section id="stage" class="stage" aria-label="Rendered extension preview">
+            <div id="frame-holder" class="frame-holder"><iframe id="preview-frame" title="The System extension preview" src="./preview-app.html"></iframe></div>
+        </section>
+
+        <section class="comparison">
+            <article><header><h2>PC layout</h2><span>1440 × 960</span></header><ul><li>Wide dossier sections and side-by-side data groups</li><li>All primary tabs visible across the navigation rail</li><li>Two-column skill and summon registries where space allows</li><li>Equipment ledger and effect summary shown together</li></ul></article>
+            <article><header><h2>Mobile layout</h2><span>390 × 844</span></header><ul><li>Horizontal swipe navigation with full-width modules</li><li>Resources, records, and equipment collapse into readable vertical flows</li><li>Touch targets remain large while detailed data stays available</li><li>Modals become full-screen dossiers with sticky actions</li></ul></article>
+        </section>
+
+        <footer class="preview-footer"><span>Demonstration data only — no SillyTavern chat is changed.</span><a href="https://github.com/DesZiDesu/sololeveling-extension">VIEW REPOSITORY</a></footer>
+    </main>
+    <script>
+        const devices = { desktop: { width: 1440, height: 960 }, mobile: { width: 390, height: 844 } };
+        const frame = document.getElementById('preview-frame');
+        const holder = document.getElementById('frame-holder');
+        const stage = document.getElementById('stage');
+        const readout = document.getElementById('viewport-readout');
+        let device = 'desktop'; let scaleMode = 'fit'; let currentView = 'status';
+
+        function mark(selector, attribute, value) { document.querySelectorAll(selector).forEach(button => button.classList.toggle('is-active', button.getAttribute(attribute) === value)); }
+        function layout() {
+            const size = devices[device]; const available = Math.max(240, stage.clientWidth - 36);
+            const scale = scaleMode === 'fit' ? Math.min(1, available / size.width) : 1;
+            frame.style.width = `${size.width}px`; frame.style.height = `${size.height}px`;
+            frame.style.transform = `translateX(-50%) scale(${scale})`;
+            holder.style.width = `${Math.round(size.width * scale)}px`; holder.style.height = `${Math.round(size.height * scale)}px`;
+            readout.textContent = `${size.width} × ${size.height}${scale < 1 ? ` · ${Math.round(scale * 100)}%` : ''}`;
+        }
+        function sendView() { frame.contentWindow?.postMessage({ source:'sl-preview', view:currentView }, '*'); }
+        document.addEventListener('click', event => {
+            const deviceButton = event.target.closest('[data-device]');
+            const scaleButton = event.target.closest('[data-scale]');
+            const viewButton = event.target.closest('[data-view]');
+            if (deviceButton) { device = deviceButton.dataset.device; mark('[data-device]','data-device',device); layout(); }
+            if (scaleButton) { scaleMode = scaleButton.dataset.scale; mark('[data-scale]','data-scale',scaleMode); layout(); }
+            if (viewButton) { currentView = viewButton.dataset.view; mark('[data-view]','data-view',currentView); sendView(); }
+        });
+        frame.addEventListener('load', () => setTimeout(sendView, 180));
+        window.addEventListener('resize', layout, { passive:true });
+        layout();
+    </script>
+</body>
+</html>

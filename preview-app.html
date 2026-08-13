@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <title>The System Preview Frame</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        html,body { margin:0; min-height:100%; background:#0b0907; color:#eee; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+        #preview-chat { min-height:100vh; padding:80px 8vw; background:radial-gradient(circle at 80% 20%,rgba(185,145,63,.08),transparent 38%),#0b0907; }
+        .preview-bubble { max-width:720px; margin:20px auto; padding:24px; border:1px solid rgba(185,145,63,.07); border-radius:8px; background:#17130f; color:#b6ad9d; font-size:17px; line-height:1.7; }
+    </style>
+</head>
+<body>
+    <main id="preview-chat"><div class="preview-bubble">The record interface opens above the training hall and registers the latest changes.</div><div class="preview-bubble">Mira steadies herself and reviews the information now available.</div></main>
+    <script>
+        window.previewContext = {
+            name1:'Mira Vale', locale:'en-US',
+            extensionSettings:{ the_system:{ sidebarEnabled:true,sidebarPosition:'right',notificationMode:'full',notificationPosition:'top-center',accentColor:'#b9913f',backgroundColor:'#0d0a07',particleColor:'#c7a65b',layoutMode:'auto',visualVersion:2 } },
+            chatMetadata:{ solo_leveling_system_state:{
+                accepted:true, administratorMode:false,
+                player:{name:'Mira Vale',title:'Night Vanguard',titles:['Trial Victor','Gatebreaker'],job:'Spellblade',level:18,rank:'A',experience:760,experienceRequired:1200,hp:1840,maxHp:2200,mp:910,maxMp:1300,fatigue:21,condition:'Combat Ready',statPoints:4,stats:{strength:67,agility:74,vitality:62,intelligence:81,perception:70}},
+                currency:{name:'System Credit',symbol:'SC',amount:18420},
+                scene:{date:'13 August',day:'Thursday',dayCount:48,year:'2026',time:'21:42',period:'Night',place:'Hunter Association',location:'Sublevel Training Hall',position:'Standing beside the eastern sparring platform, three meters from the sealed gate',temperature:'19°C',weather:'Rain outside',season:'Monsoon'},
+                skills:[
+                    {id:'shadow-extraction',name:'Shadow Extraction',rank:'S',type:'Active',description:'Extract and command the lingering essence of defeated enemies.',level:7,mastery:640,masteryRequired:900,uses:38,activationRequired:true,activationWords:['Arise','Answer my call'],summoning:true,system:'shadow-army',summonCapacityBase:10,summonCapacityPerLevel:5,buffing:false},
+                    {id:'shadow-domain',name:'Shadow Domain',rank:'A',type:'Buff',description:'Saturates the active territory with shadow mana and strengthens allied summons.',level:4,mastery:210,masteryRequired:500,uses:11,buffing:true,buff:{enabled:false,auraColor:'#7c3aed',backgroundColor:'#10081f',particleColor:'#c4a7ff',durationSeconds:90,cooldownSeconds:180,mpDrain:20}}
+                ],
+                shadowArmy:[
+                    {id:'igris',name:'Igris',species:'Undead Knight',race:'Shadow',rank:'S',level:27,class:'Knight',status:'Deployed',kind:'Shadow',ownerSkillId:'shadow-extraction',condition:'Combat Ready',manaCost:32,hp:680,maxHp:720,mp:180,maxMp:240,experience:44,experienceRequired:100,summonedAt:'2026-08-10T10:00:00Z',description:'An elite knight with exceptional discipline and sword mastery.',stats:{strength:62,agility:51,vitality:58,intelligence:30,perception:49},abilities:['Sword Mastery','Regeneration']},
+                    {id:'tank',name:'Tank',species:'Ice Bear',race:'Beast',rank:'A',level:21,class:'Guardian',status:'Stored',kind:'Shadow',ownerSkillId:'shadow-extraction',condition:'Stable',manaCost:24,hp:1100,maxHp:1100,mp:80,maxMp:120,experience:12,experienceRequired:100,stats:{strength:55,agility:28,vitality:79,intelligence:18,perception:35},abilities:['Fortress Hide','Charge']}
+                ],
+                quests:[{id:'daily-training',title:'Adaptive Conditioning Protocol',type:'Daily Quest',status:'Active',daily:true,description:'Complete the assigned conditioning routine before reset.',experienceReward:350,deadline:'Before midnight',penalty:{description:'Fatigue increase'},objectives:[{label:'Push-ups',current:100,goal:100,unit:'repetitions',completed:true},{label:'Sit-ups',current:72,goal:100,unit:'repetitions'},{label:'Distance run',current:6.4,goal:10,unit:'km'}]}],
+                inventory:[
+                    {id:'moon-dagger',name:'Moonlit Dagger',category:'Weapon',rarity:'Epic',quantity:1,description:'A balanced dagger that channels condensed mana.',price:3200,slot:'weapon',effects:{stats:{agility:8,perception:4},description:'Agility +8 · Perception +4'}},
+                    {id:'mana-elixir',name:'Greater Mana Elixir',category:'Potion',rarity:'Rare',quantity:3,description:'Restores mana immediately.',price:600,usable:true,effects:{mp:450,description:'Restore 450 MP'}}
+                ],
+                equipment:{weapon:'moon-dagger',head:null,chest:null,hands:null,legs:null,feet:null,accessory:null},shop:[],pendingActions:[],updatedAt:'2026-08-13T14:42:00Z'
+            }},
+            chat:[], getCurrentChatId:()=> 'preview-chat', saveMetadata:async()=>{}, saveSettingsDebounced:()=>{}, setExtensionPrompt:()=>{}
+        };
+        window.SillyTavern={ getContext:()=>window.previewContext };
+    </script>
+    <script src="./index.js"></script>
+    <script>
+        const click = selector => document.querySelector(selector)?.click();
+        function resetLayers() {
+            document.getElementById('sl-system-island')?.classList.remove('is-visible');
+            document.getElementById('sl-system-event-notice')?.classList.remove('is-visible','is-armed');
+            document.getElementById('sl-system-edge-launcher')?.classList.remove('is-open');
+            document.getElementById('sl-system-edge-environment')?.classList.remove('is-open');
+            document.body.classList.remove('sl-edge-menu-open');
+        }
+        function show(view='status') {
+            resetLayers();
+            if (['sidebar','island','alert'].includes(view)) {
+                window.TheSystemExtension?.close();
+                if (view === 'sidebar') { const launcher=document.getElementById('sl-system-edge-launcher'); if (launcher) launcher.hidden=false; click('[data-sl-edge-toggle]'); }
+                if (view === 'island') window.TheSystemExtension?.notify('working','SYSTEM MONITORING','Waiting for the next reply…',{persistent:true,event:false});
+                if (view === 'alert') window.TheSystemExtension?.notify('level','LEVEL INCREASE CONFIRMED','Mira Vale · Level 19',{tab:'status',event:true});
+                return;
+            }
+            window.TheSystemExtension?.open();
+            if (view === 'aura') { click('[data-sl-tab="skills"]'); requestAnimationFrame(()=>click('[data-sl-skill="shadow-domain"]')); return; }
+            if (view === 'shadow') { click('[data-sl-tab="summons"]'); requestAnimationFrame(()=>click('[data-sl-shadow="igris"]')); return; }
+            click(`[data-sl-tab="${view}"]`);
+        }
+        window.addEventListener('message', event => { if (event.data?.source === 'sl-preview') show(event.data.view); });
+        window.addEventListener('load',()=>setTimeout(()=>show('status'),100));
+    </script>
+</body>
+</html>

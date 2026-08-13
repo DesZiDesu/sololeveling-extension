@@ -4,14 +4,14 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.0.0 is a complete information-first visual redesign. It replaces the accumulated game-HUD styling with a restrained black/violet professional interface, improves mobile reflow, and preserves the full Solo Leveling progression feature set.
+Version 1.1.0 replaces the previous oversized violet dashboard with a compact obsidian-and-antique-bronze game dossier based on dense in-chat record interfaces. PC and mobile now use deliberately different compositions rather than one layout merely shrinking at narrow widths.
 
 - The first per-chat record uses the active SillyTavern user persona as the Player name, while Administrator Mode can still override it later.
-- Status and Scene are formal data dossiers with text codes, clear information hierarchy, accessible meters, labeled records, and far fewer decorative icons or SVGs.
-- Summon records expose HP and MP directly in the registry. Full unit dossiers include condition, authority, mana cost, registration time, experience progression, five combat attributes, abilities, deployment state, and permanent soul dismissal.
+- Status and Scene use narrow record headers, compact labeled fields, segmented meters, and restrained bronze hierarchy with far fewer decorative icons or SVGs.
+- Summon records expose HP and MP directly in the registry. Every unit now has its own user-selectable portrait; the fallback seal uses the first letter of species, race, or name plus the unit rank.
 - Equipment is now an informative loadout ledger with slot state, item mechanic, active effects, and summarized attribute bonuses instead of a decorative character silhouette.
 - Item and skill sheets use structured metadata and mechanical-effect grids. Skill aura colors use compact circular wells rather than pill-shaped controls.
-- The response channel, milestone alert, and optional side launcher share one formal visual language. Opening the holographic launcher darkens and softly blurs chat behind animated scan lines and rotating orbital elements.
+- The response channel, milestone alert, and optional side launcher share the same restrained bronze-black visual language. Opening the launcher still darkens and softly blurs chat behind animated scan lines and orbital elements.
 - The stylesheet is separated into foundation, interface, notification, and responsive layers so future visual updates stay coherent.
 
 - A multi-message welcome sequence replaces the previous single threatening onboarding message.
@@ -27,7 +27,7 @@ Version 1.0.0 is a complete information-first visual redesign. It replaces the a
 - Redesigned segmented HP/MP monitors, progression route, and responsive attribute matrix.
 - A separate draggable milestone alert window over the main chat, with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal; both notification layers hide while the full System panel is open.
 - Chat-confirmed summon, wield, equip, sheathe, dismiss, and unequip actions update canonical equipment state in English or Thai and reconcile registered equipment stat bonuses.
-- Animated particles, responsive selection motion, and a subtly animated profile frame.
+- Animated profile-ring orbits, tab-change sweeps, touch/click acknowledgement pulses, hover responses, and short panel-entry transitions, with reduced-motion support.
 - Independent main, background, and particle colors with compact circular color controls.
 - A dedicated Scene tab for date, day, year, time, place, location, specific current position, temperature, weather, and season.
 - Tap-to-open missions with per-objective progress, deadlines, penalties, structured AI-generated rewards, and one-time reward claiming.
@@ -44,6 +44,10 @@ Version 1.0.0 is a complete information-first visual redesign. It replaces the a
 - Uses SillyTavern's active provider/model through `generateQuietPrompt` and `setExtensionPrompt` when available.
 - Queues interface actions so the next character response can acknowledge them without applying costs or rewards twice.
 
+## Live preview
+
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.1.0 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+
 ## Installation
 
 Install the repository as a SillyTavern third-party extension using:
@@ -52,4 +56,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.0.0.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.1.0.

@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '1.0.0';
+const UI_VERSION = '1.1.0';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -12,20 +12,21 @@ const DEFAULT_SETTINGS = Object.freeze({
     showWandLauncher: true,
     autoTrack: true,
     injectState: true,
-    accentColor: '#a790ff',
-    backgroundColor: '#080611',
-    particleColor: '#866cff',
-    glassOpacity: 90,
-    glowStrength: 58,
+    accentColor: '#b9913f',
+    backgroundColor: '#0d0a07',
+    particleColor: '#c7a65b',
+    glassOpacity: 96,
+    glowStrength: 22,
     notificationPosition: 'top-center',
     notificationMode: 'compact',
     sidebarPosition: 'right',
     sidebarEnabled: true,
+    layoutMode: 'auto',
     eventNotificationX: null,
     eventNotificationY: null,
     language: 'auto',
     smartFallback: true,
-    visualVersion: 1,
+    visualVersion: 2,
 });
 
 const TABS = [
@@ -151,7 +152,7 @@ function recordTime(value) { const parsed = Date.parse(String(value || '')); ret
 
 function hexToRgb(hex) {
     const match = String(hex).match(/^#?([0-9a-f]{6})$/i);
-    if (!match) return '53, 191, 255';
+    if (!match) return '185, 145, 63';
     const value = match[1];
     return `${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}`;
 }
@@ -161,10 +162,12 @@ function getSettings() {
     currentContext.extensionSettings ||= {};
     currentContext.extensionSettings[SETTINGS_KEY] ||= { ...DEFAULT_SETTINGS };
     const settings = currentContext.extensionSettings[SETTINGS_KEY];
-    if (settings.visualVersion === undefined) {
-        if (settings.accentColor === '#35bfff') settings.accentColor = DEFAULT_SETTINGS.accentColor;
-        if (settings.backgroundColor === '#030e1c') settings.backgroundColor = DEFAULT_SETTINGS.backgroundColor;
-        if (settings.particleColor === '#6dd8ff') settings.particleColor = DEFAULT_SETTINGS.particleColor;
+    if (number(settings.visualVersion, 0) < DEFAULT_SETTINGS.visualVersion) {
+        if (['#35bfff', '#a790ff'].includes(settings.accentColor)) settings.accentColor = DEFAULT_SETTINGS.accentColor;
+        if (['#030e1c', '#080611'].includes(settings.backgroundColor)) settings.backgroundColor = DEFAULT_SETTINGS.backgroundColor;
+        if (['#6dd8ff', '#866cff'].includes(settings.particleColor)) settings.particleColor = DEFAULT_SETTINGS.particleColor;
+        if (settings.glowStrength === 58) settings.glowStrength = DEFAULT_SETTINGS.glowStrength;
+        if (settings.glassOpacity === 90) settings.glassOpacity = DEFAULT_SETTINGS.glassOpacity;
         settings.visualVersion = DEFAULT_SETTINGS.visualVersion;
     }
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) if (settings[key] === undefined) settings[key] = value;
@@ -174,6 +177,7 @@ function getSettings() {
     if (!['top-center', 'top-left', 'top-right', 'bottom-center'].includes(settings.notificationPosition)) settings.notificationPosition = DEFAULT_SETTINGS.notificationPosition;
     if (!['compact', 'full'].includes(settings.notificationMode)) settings.notificationMode = DEFAULT_SETTINGS.notificationMode;
     if (!['left', 'right'].includes(settings.sidebarPosition)) settings.sidebarPosition = DEFAULT_SETTINGS.sidebarPosition;
+    if (!['auto', 'desktop', 'mobile'].includes(settings.layoutMode)) settings.layoutMode = DEFAULT_SETTINGS.layoutMode;
     settings.sidebarEnabled = settings.sidebarEnabled !== false;
     for (const key of ['eventNotificationX', 'eventNotificationY']) {
         if (settings[key] !== null && settings[key] !== undefined && Number.isFinite(Number(settings[key]))) settings[key] = number(settings[key], null, 0, 100);
@@ -204,7 +208,7 @@ function applyAppearance() {
     const island = document.getElementById('sl-system-island'); if (island) { island.setAttribute('data-position', settings.notificationPosition); island.setAttribute('data-view', settings.notificationMode); const icon = island.querySelector('[data-sl-island-mode] i'); if (icon) icon.className = `fa-solid ${settings.notificationMode === 'compact' ? 'fa-expand' : 'fa-compress'}`; }
     const edgeLauncher = document.getElementById('sl-system-edge-launcher'); if (edgeLauncher) edgeLauncher.dataset.side = settings.sidebarPosition;
     document.body?.classList.toggle('sl-aura-active', Boolean(auraSkill));
-    const overlay = document.getElementById('sl-system-overlay'); if (overlay) { overlay.dataset.aura = auraSkill?.id || ''; overlay.style.setProperty('--sl-aura-name', `"${String(auraSkill?.name || '').replaceAll('"', '')}"`); }
+    const overlay = document.getElementById('sl-system-overlay'); if (overlay) { overlay.dataset.aura = auraSkill?.id || ''; overlay.dataset.layout = settings.layoutMode; overlay.style.setProperty('--sl-aura-name', `"${String(auraSkill?.name || '').replaceAll('"', '')}"`); }
     positionEdgeLauncher();
     positionEventNotice();
 }
@@ -377,9 +381,9 @@ function normalizeSkill(source = {}) {
         buffing,
         buff: {
             enabled: Boolean(buffSource.enabled),
-            auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#8b5cf6' : '#a790ff'),
-            backgroundColor: hexColor(buffSource.backgroundColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#10081f' : '#080611'),
-            particleColor: hexColor(buffSource.particleColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#c4a7ff' : '#866cff'),
+            auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#8b5cf6' : '#b9913f'),
+            backgroundColor: hexColor(buffSource.backgroundColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#10081f' : '#0d0a07'),
+            particleColor: hexColor(buffSource.particleColor, shadowExtraction || /shadow\s*domain/i.test(name) ? '#c4a7ff' : '#c7a65b'),
             durationSeconds: number(buffSource.durationSeconds, 60, 5, 86400), cooldownSeconds: number(buffSource.cooldownSeconds, 120, 0, 604800),
             mpDrain: number(buffSource.mpDrain, 5, 0, 999999), expiresAt: text(buffSource.expiresAt, '', 80), cooldownUntil: text(buffSource.cooldownUntil, '', 80),
         },
@@ -404,7 +408,7 @@ function normalizeShadow(source = {}, skills = []) {
     return {
         id: text(source.id, uid('shadow'), 100), name: text(source.name, 'Unnamed Shadow', 120),
         rank: text(source.rank, 'E', 20), level: number(source.level, 1, 1, 999999),
-        class: text(source.class || source.role, 'Soldier', 80), status, dismissed, dismissedAt: text(source.dismissedAt, '', 80),
+        class: text(source.class || source.role, 'Soldier', 80), species: text(source.species, '', 80), race: text(source.race, '', 80), status, dismissed, dismissedAt: text(source.dismissedAt, '', 80),
         ownerSkillId: text(source.ownerSkillId, owner?.id || '', 100), kind: text(source.kind, owner?.system === 'shadow-army' ? 'Shadow' : 'Summon', 40),
         manaCost: number(source.manaCost, 0, 0, 999999), condition: text(source.condition, dismissed ? 'Released' : 'Stable', 80),
         hp: number(source.hp, maxHp, 0, maxHp), maxHp, mp: number(source.mp, maxMp, 0, maxMp), maxMp,
@@ -412,6 +416,7 @@ function normalizeShadow(source = {}, skills = []) {
         summonedAt: text(source.summonedAt || source.extractedAt || source.createdAt, '', 80),
         description: text(source.description, 'No shadow record available.', 1200),
         stats: normalizedStats,
+        portrait: normalizeImage(source.portrait || (typeof source.image === 'object' ? source.image : { image: source.image })),
         abilities: Array.isArray(source.abilities) ? source.abilities.map(value => displayValue(value, '')).filter(Boolean).slice(0, 100) : [],
     };
 }
@@ -533,7 +538,7 @@ function hasUserReply(currentContext = context()) { return Array.isArray(current
 
 function stateForPrompt(state) {
     return {
-        player: state.player, skills: state.skills.map(({ icon, ...skill }) => skill), shadowArmy: state.shadowArmy, summonCapacity: summonCapacity(state), summonOccupied: activeSummons(state).length, quests: state.quests,
+        player: state.player, skills: state.skills.map(({ icon, ...skill }) => skill), shadowArmy: state.shadowArmy.map(({ portrait, ...unit }) => unit), summonCapacity: summonCapacity(state), summonOccupied: activeSummons(state).length, quests: state.quests,
         inventory: state.inventory.map(({ icon, ...item }) => item), equipment: state.equipment,
         shop: state.shop.map(({ icon, ...item }) => item), currency: state.currency, scene: state.scene,
         pendingActions: state.pendingActions,
@@ -552,7 +557,7 @@ function patchInstructions() {
         'When the user asks to view, search, open, or refill the System Shop in main chat, populate shop with coherent complete items and prices. Equippable items require slot weapon|head|chest|hands|legs|feet|accessory. Consumables require usable:true and meaningful effects using hp, mp, fatigue (negative reduces fatigue), cure, detoxify, stats, and description. Never create an inert item or merely describe a shop without updating shop state.',
         'Skills use {id,name,rank,type,description,level,mastery,masteryRequired,uses,lastUsedAt,activationRequired,activationWords:[]}. Increase mastery when a skill is successfully used and raise its level when mastery reaches the required amount.',
         'Voice-activated skills must not activate unless the user says one of that skill\'s saved activationWords. A skill can have multiple phrases. If activationRequired is true and activationWords is empty, do not activate it; direct the user to configure phrases in the Skills tab.',
-        'Any summoning skill uses summoning:true and system:"summoning"; Shadow Extraction specifically uses system:"shadow-army". Storage capacity is summonCapacityBase + (level - 1) × summonCapacityPerLevel for every owned summoning skill. Never add a new active summon when capacity is full. When summoning or extraction succeeds, upsert shadowArmy with {id,name,rank,level,class,status:"Stored"|"Deployed",ownerSkillId,kind:"Shadow"|"Summon",manaCost,condition,hp,maxHp,mp,maxMp,experience,experienceRequired,summonedAt,description,stats:{strength,agility,vitality,intelligence,perception},abilities:[]}. Every active summon has trackable HP, MP, condition, progression, and individual stats; update them when combat or training confirms a change. A dismissed:true unit is permanently released and must never return unless the story explicitly creates a different new soul with a new id.',
+        'Any summoning skill uses summoning:true and system:"summoning"; Shadow Extraction specifically uses system:"shadow-army". Storage capacity is summonCapacityBase + (level - 1) × summonCapacityPerLevel for every owned summoning skill. Never add a new active summon when capacity is full. When summoning or extraction succeeds, upsert shadowArmy with {id,name,rank,level,class,species,race,status:"Stored"|"Deployed",ownerSkillId,kind:"Shadow"|"Summon",manaCost,condition,hp,maxHp,mp,maxMp,experience,experienceRequired,summonedAt,description,stats:{strength,agility,vitality,intelligence,perception},abilities:[]}. Every active summon has trackable HP, MP, condition, progression, and individual stats; update them when combat or training confirms a change. A dismissed:true unit is permanently released and must never return unless the story explicitly creates a different new soul with a new id. Portrait images are controlled only by the user interface and must never be generated into the patch.',
         'Buff, domain, aura, and enhancement skills use buffing:true and buff:{auraColor,backgroundColor,particleColor,durationSeconds,cooldownSeconds,mpDrain}. Do not activate a buff before buff.cooldownUntil. When one is successfully activated, increase uses and set lastUsedAt; the extension owns its timed aura, recurring MP drain, disabling, and cooldown, so do not separately deduct buff.mpDrain.',
         'Update scene.date, scene.day, scene.dayCount, scene.year, scene.time, scene.period, scene.place, scene.location, scene.position, scene.temperature, scene.weather, and scene.season whenever the story confirms a change. scene.position must say where the user is physically standing plus a nearby reference, such as "Standing beside the dungeon gate, near the eastern guard post." Leave unknown or unchanged values alone.',
         'UI pendingActions were already applied to canonical state. Acknowledge their consequences naturally in the next reply and do not charge, consume, equip, or add their values twice.',
@@ -898,11 +903,18 @@ function categorySvg(category, preset = '') {
     return `<svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
 }
 
-function imageFrame(image, category = 'Misc', className = '') {
+function imageFrame(image, category = 'Misc', className = '', fallbackText = '') {
     const style = image?.image ? `style="--image:url('${image.image}');--x:${image.positionX ?? 50}%;--y:${image.positionY ?? 50}%;--zoom:${image.zoom ?? 1}"` : '';
-    const fallback = category === 'Profile' ? `<strong class="sl-profile-initials">${html(initials(currentPersonaName()))}</strong><small>PERSONA</small>` : categorySvg(category, image?.preset);
+    const fallback = category === 'Profile' ? `<strong class="sl-profile-initials">${html(initials(currentPersonaName()))}</strong><small>PERSONA</small>` : category === 'Summon' ? `<strong class="sl-summon-letter">${html(fallbackText || '?')}</strong><small>UNIT</small>` : categorySvg(category, image?.preset);
     return `<span class="sl-image-frame ${className}${image?.image ? ' has-image' : ''}" ${style}>${image?.image ? '<i></i>' : fallback}<b></b></span>`;
 }
+
+function summonLetter(unit) {
+    const source = text(unit?.species || unit?.race || unit?.name || unit?.rank, '?', 100);
+    return (source.trim().charAt(0) || '?').toLocaleUpperCase();
+}
+
+function summonPortrait(unit, className = '') { return imageFrame(unit?.portrait, 'Summon', className, summonLetter(unit)); }
 
 function resourceMeter(label, value, maximum, kind = 'neutral') {
     const progress = percent(value, maximum); const state = progress <= 20 ? 'CRITICAL' : progress <= 55 ? 'LOW' : progress <= 80 ? 'STABLE' : 'OPTIMAL';
@@ -967,7 +979,7 @@ function renderSkills() {
 function summonUnitCard(unit) {
     const deployed = unit.status === 'Deployed';
     const hpProgress = percent(unit.hp, unit.maxHp); const mpProgress = percent(unit.mp, unit.maxMp);
-    return `<article class="sl-summon-card" data-status="${html(unit.status.toLowerCase())}"><button type="button" class="sl-summon-card-main" data-sl-shadow="${html(unit.id)}"><span class="sl-summon-avatar"><b>${html(initials(unit.name))}</b><em>${html(unit.rank)}</em></span><span class="sl-summon-identity"><small>${html(unit.kind)} / ${html(unit.class)}</small><b>${html(unit.name)}</b><em>LEVEL ${unit.level} · ${html(unit.condition)} · ${html(unit.status)}</em></span><span class="sl-summon-card-vitals"><span class="is-hp" style="--unit-progress:${hpProgress}%"><small>HP</small><i><b></b></i><em>${unit.hp}/${unit.maxHp}</em></span><span class="is-mp" style="--unit-progress:${mpProgress}%"><small>MP</small><i><b></b></i><em>${unit.mp}/${unit.maxMp}</em></span></span><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="sl-summon-quick" data-sl-summon-action="${deployed ? 'store' : 'deploy'}" data-summon-id="${html(unit.id)}"><i class="fa-solid ${deployed ? 'fa-arrow-rotate-left' : 'fa-burst'}"></i>${deployed ? t('recall') : t('deploy')}</button></article>`;
+    return `<article class="sl-summon-card" data-status="${html(unit.status.toLowerCase())}"><button type="button" class="sl-summon-portrait-button" data-sl-summon-image="${html(unit.id)}" aria-label="Edit ${html(unit.name)} portrait">${summonPortrait(unit)}<em>${html(unit.rank)}</em><span><i class="fa-solid fa-camera"></i></span></button><button type="button" class="sl-summon-card-main" data-sl-shadow="${html(unit.id)}"><span class="sl-summon-identity"><small>${html(unit.kind)} / ${html(unit.species || unit.race || unit.class)}</small><b>${html(unit.name)}</b><em>LEVEL ${unit.level} · ${html(unit.class)} · ${html(unit.status)}</em></span><span class="sl-summon-card-vitals"><span class="is-hp" style="--unit-progress:${hpProgress}%"><small>HP</small><i><b></b></i><em>${unit.hp}/${unit.maxHp}</em></span><span class="is-mp" style="--unit-progress:${mpProgress}%"><small>MP</small><i><b></b></i><em>${unit.mp}/${unit.maxMp}</em></span></span><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="sl-summon-quick" data-sl-summon-action="${deployed ? 'store' : 'deploy'}" data-summon-id="${html(unit.id)}"><i class="fa-solid ${deployed ? 'fa-arrow-rotate-left' : 'fa-burst'}"></i>${deployed ? t('recall') : t('deploy')}</button></article>`;
 }
 
 function renderSummons() {
@@ -1199,7 +1211,21 @@ function showShadowModal(shadowId) {
     const labels = { strength: ['STR', 'Strength'], agility: ['AGI', 'Agility'], vitality: ['VIT', 'Vitality'], intelligence: ['INT', 'Intelligence'], perception: ['PER', 'Perception'] };
     const owner = state.skills.find(skill => skill.id === shadow.ownerSkillId); const armed = summonDismissArmed === shadow.id;
     const shadowExp = percent(shadow.experience, shadow.experienceRequired);
-    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-shadow-sheet"><header><span>${html(shadow.kind.toUpperCase())} DOSSIER / ${html(shadow.id)}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-shadow-hero"><span class="sl-shadow-modal-mark"><b>${html(initials(shadow.name))}</b><em>${html(shadow.rank)}</em></span><div><span>${html(shadow.class)} · ${owner ? html(owner.name) : 'Unknown authority'}</span><h3>${html(shadow.name)}</h3><p>LEVEL ${shadow.level} · ${html(shadow.status)} · ${html(shadow.condition)}</p></div></div><div class="sl-shadow-vitals">${resourceMeter('HP', shadow.hp, shadow.maxHp, 'hp')}${resourceMeter('MP', shadow.mp, shadow.maxMp, 'mp')}</div><dl class="sl-information-grid">${informationField('Classification', shadow.kind)}${informationField('Combat class', shadow.class)}${informationField('Rank', shadow.rank)}${informationField('Authority', owner?.name || 'Unknown')}${informationField('Summon cost', `${shadow.manaCost} MP`)}${informationField('Registered', shadow.summonedAt ? recordTime(shadow.summonedAt) : 'Not recorded')}</dl><section><h4>UNIT DESCRIPTION</h4><p>${html(shadow.description)}</p></section><section><h4>LEVEL PROGRESSION</h4><div class="sl-shadow-experience" style="--unit-exp:${shadowExp}%"><span><b>${shadow.experience.toLocaleString()} / ${shadow.experienceRequired.toLocaleString()} EXP</b><small>${shadowExp}% COMPLETE</small></span><i><b></b></i></div></section><section><h4>COMBAT ATTRIBUTES</h4><div class="sl-shadow-stats">${Object.entries(shadow.stats).map(([key, value]) => `<article><span><b>${html(labels[key]?.[0] || key)}</b><small>${html(labels[key]?.[1] || key)}</small></span><strong>${value}</strong><i style="--unit-stat:${percent(value, Math.max(1, ...Object.values(shadow.stats)))}%"><b></b></i></article>`).join('')}</div></section><section><h4>REGISTERED ABILITIES</h4><div class="sl-shadow-abilities">${shadow.abilities.map((ability, index) => `<span><b>${String(index + 1).padStart(2, '0')}</b>${html(ability)}</span>`).join('') || '<p class="sl-muted-copy">No abilities recorded.</p>'}</div></section>${!shadow.dismissed ? `<section class="sl-summon-management"><h4>UNIT MANAGEMENT</h4><div><button type="button" data-sl-summon-action="${shadow.status === 'Deployed' ? 'store' : 'deploy'}" data-summon-id="${html(shadow.id)}"><i class="fa-solid ${shadow.status === 'Deployed' ? 'fa-arrow-rotate-left' : 'fa-burst'}"></i>${shadow.status === 'Deployed' ? t('recall') : t('deploy')}</button><button type="button" class="sl-dismiss-soul${armed ? ' is-armed' : ''}" data-sl-summon-action="${armed ? 'confirm-dismiss' : 'arm-dismiss'}" data-summon-id="${html(shadow.id)}"><i class="fa-solid fa-link-slash"></i>${armed ? t('confirm_dismiss') : t('dismiss_soul')}</button></div>${armed ? '<p>This permanently releases the soul, frees one storage slot, and cannot be undone.</p>' : ''}</section>` : `<section class="sl-dismissed-record"><b>RELEASED RECORD</b><p>This soul was permanently released and no longer uses capacity.</p></section>`}<footer><button type="button" data-sl-action="close-modal">CLOSE</button></footer></article>`;
+    const statRows = Object.entries(shadow.stats).map(([key, value]) => `<article><span><b>${html(labels[key]?.[0] || key)}</b><small>${html(labels[key]?.[1] || key)}</small></span><strong>${value}</strong><i style="--unit-stat:${percent(value, Math.max(1, ...Object.values(shadow.stats)))}%"><b></b></i></article>`).join('');
+    const abilities = shadow.abilities.map((ability, index) => `<span><b>${String(index + 1).padStart(2, '0')}</b>${html(ability)}</span>`).join('') || '<p class="sl-muted-copy">No abilities recorded.</p>';
+    const management = !shadow.dismissed
+        ? `<section class="sl-summon-management"><h4>UNIT MANAGEMENT</h4><div><button type="button" data-sl-summon-action="${shadow.status === 'Deployed' ? 'store' : 'deploy'}" data-summon-id="${html(shadow.id)}"><i class="fa-solid ${shadow.status === 'Deployed' ? 'fa-arrow-rotate-left' : 'fa-burst'}"></i>${shadow.status === 'Deployed' ? t('recall') : t('deploy')}</button><button type="button" class="sl-dismiss-soul${armed ? ' is-armed' : ''}" data-sl-summon-action="${armed ? 'confirm-dismiss' : 'arm-dismiss'}" data-summon-id="${html(shadow.id)}"><i class="fa-solid fa-link-slash"></i>${armed ? t('confirm_dismiss') : t('dismiss_soul')}</button></div>${armed ? '<p>This permanently releases the soul, frees one storage slot, and cannot be undone.</p>' : ''}</section>`
+        : '<section class="sl-dismissed-record"><b>RELEASED RECORD</b><p>This soul was permanently released and no longer uses capacity.</p></section>';
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-shadow-sheet">
+        <header><span>${html(shadow.kind.toUpperCase())} DOSSIER / ${html(shadow.id)}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header>
+        <div class="sl-shadow-hero"><button type="button" class="sl-shadow-modal-mark" data-sl-action="edit-selected-summon-image" aria-label="Edit summon portrait">${summonPortrait(shadow, 'is-large')}<em>${html(shadow.rank)}</em><span><i class="fa-solid fa-camera"></i> EDIT</span></button><div><span>${html(shadow.class)} · ${owner ? html(owner.name) : 'Unknown authority'}</span><h3>${html(shadow.name)}</h3><p>LEVEL ${shadow.level} · ${html(shadow.status)} · ${html(shadow.condition)}</p></div></div>
+        <div class="sl-shadow-vitals">${resourceMeter('HP', shadow.hp, shadow.maxHp, 'hp')}${resourceMeter('MP', shadow.mp, shadow.maxMp, 'mp')}</div>
+        <dl class="sl-information-grid">${informationField('Classification', shadow.kind)}${informationField('Species / race', shadow.species || shadow.race || 'Unrecorded')}${informationField('Combat class', shadow.class)}${informationField('Rank', shadow.rank)}${informationField('Authority', owner?.name || 'Unknown')}${informationField('Summon cost', `${shadow.manaCost} MP`)}${informationField('Registered', shadow.summonedAt ? recordTime(shadow.summonedAt) : 'Not recorded')}</dl>
+        <section><h4>UNIT DESCRIPTION</h4><p>${html(shadow.description)}</p></section>
+        <section><h4>LEVEL PROGRESSION</h4><div class="sl-shadow-experience" style="--unit-exp:${shadowExp}%"><span><b>${shadow.experience.toLocaleString()} / ${shadow.experienceRequired.toLocaleString()} EXP</b><small>${shadowExp}% COMPLETE</small></span><i><b></b></i></div></section>
+        <section><h4>COMBAT ATTRIBUTES</h4><div class="sl-shadow-stats">${statRows}</div></section>
+        <section><h4>REGISTERED ABILITIES</h4><div class="sl-shadow-abilities">${abilities}</div></section>
+        ${management}<footer><button type="button" data-sl-action="edit-selected-summon-image"><i class="fa-solid fa-image"></i> PORTRAIT</button><button type="button" data-sl-action="close-modal">CLOSE</button></footer></article>`;
     modal.hidden = false;
 }
 
@@ -1256,12 +1282,14 @@ function openImageEditor(target) {
     const state = getState(); let current; let label = 'ITEM IMAGE'; let category = 'Misc';
     if (target === 'profile') { current = state.profile; label = 'PROFILE IMAGE'; category = 'Profile'; }
     else if (String(target).startsWith('skill:')) { const skill = state.skills.find(entry => entry.id === String(target).slice(6)); if (!skill) return; current = skill.icon; label = 'SKILL ICON'; category = 'Skill'; }
+    else if (String(target).startsWith('summon:')) { const unit = state.shadowArmy.find(entry => entry.id === String(target).slice(7)); if (!unit) return; current = unit.portrait; label = `${unit.name.toUpperCase()} PORTRAIT`; category = 'Summon'; }
     else { const item = state.inventory.find(entry => entry.id === target); if (!item) return; current = item.icon; category = item.category; }
     imageEditorTarget = target; imageEditorDraft = clone(current); const modal = document.getElementById('sl-image-editor'); if (!modal) return;
-    modal.dataset.category = category; modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-image-editor"></button><article class="sl-image-editor-card"><header><span>${label}</span><button type="button" data-sl-action="close-image-editor"><i class="fa-solid fa-xmark"></i></button></header><div id="sl-image-editor-preview" class="sl-image-editor-preview">${imageFrame(imageEditorDraft, category, 'is-editor')}<span class="sl-gesture-guide"><i class="fa-solid fa-hand-pointer"></i> DRAG TO MOVE · PINCH OR SCROLL TO ZOOM</span></div>${category === 'Skill' ? `<section class="sl-svg-presets"><span>SVG FRAME PRESET</span><div>${SKILL_ICON_PRESETS.map(([preset, name]) => `<button type="button" class="${imageEditorDraft.preset === preset ? 'is-active' : ''}" data-sl-preset="${preset}">${categorySvg('Skill', preset)}<small>${name}</small></button>`).join('')}</div></section>` : ''}<label class="sl-file-button"><input id="sl-image-file" type="file" accept="image/*"><i class="fa-solid fa-upload"></i> SELECT IMAGE</label><div class="sl-image-controls"><label><span>Horizontal <output id="sl-image-x-output">${imageEditorDraft.positionX}%</output></span><input id="sl-image-x" type="range" min="0" max="100" value="${imageEditorDraft.positionX}"></label><label><span>Vertical <output id="sl-image-y-output">${imageEditorDraft.positionY}%</output></span><input id="sl-image-y" type="range" min="0" max="100" value="${imageEditorDraft.positionY}"></label><label><span>Zoom <output id="sl-image-zoom-output">${imageEditorDraft.zoom.toFixed(2)}×</output></span><input id="sl-image-zoom" type="range" min="1" max="3" step="0.05" value="${imageEditorDraft.zoom}"></label></div><footer><button type="button" data-sl-action="remove-image">REMOVE UPLOAD</button><button type="button" data-sl-action="save-image">SAVE TO CHAT</button></footer></article>`; modal.hidden = false; bindImageGestures();
+    const fallback = category === 'Summon' ? summonLetter(state.shadowArmy.find(entry => entry.id === String(target).slice(7))) : '';
+    modal.dataset.category = category; modal.dataset.fallback = fallback; modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-image-editor"></button><article class="sl-image-editor-card"><header><span>${label}</span><button type="button" data-sl-action="close-image-editor"><i class="fa-solid fa-xmark"></i></button></header><div id="sl-image-editor-preview" class="sl-image-editor-preview">${imageFrame(imageEditorDraft, category, 'is-editor', fallback)}<span class="sl-gesture-guide"><i class="fa-solid fa-hand-pointer"></i> DRAG TO MOVE · PINCH OR SCROLL TO ZOOM</span></div>${category === 'Skill' ? `<section class="sl-svg-presets"><span>SVG FRAME PRESET</span><div>${SKILL_ICON_PRESETS.map(([preset, name]) => `<button type="button" class="${imageEditorDraft.preset === preset ? 'is-active' : ''}" data-sl-preset="${preset}">${categorySvg('Skill', preset)}<small>${name}</small></button>`).join('')}</div></section>` : ''}<label class="sl-file-button"><input id="sl-image-file" type="file" accept="image/*"><i class="fa-solid fa-upload"></i> SELECT IMAGE</label><div class="sl-image-controls"><label><span>Horizontal <output id="sl-image-x-output">${imageEditorDraft.positionX}%</output></span><input id="sl-image-x" type="range" min="0" max="100" value="${imageEditorDraft.positionX}"></label><label><span>Vertical <output id="sl-image-y-output">${imageEditorDraft.positionY}%</output></span><input id="sl-image-y" type="range" min="0" max="100" value="${imageEditorDraft.positionY}"></label><label><span>Zoom <output id="sl-image-zoom-output">${imageEditorDraft.zoom.toFixed(2)}×</output></span><input id="sl-image-zoom" type="range" min="1" max="3" step="0.05" value="${imageEditorDraft.zoom}"></label></div><footer><button type="button" data-sl-action="remove-image">REMOVE UPLOAD</button><button type="button" data-sl-action="save-image">SAVE TO CHAT</button></footer></article>`; modal.hidden = false; bindImageGestures();
 }
 
-function refreshImageEditorPreview() { const preview = document.getElementById('sl-image-editor-preview'); if (!preview || !imageEditorDraft) return; const frame = preview.querySelector('.sl-image-frame'); const category = document.getElementById('sl-image-editor')?.dataset.category || 'Profile'; if (frame) { frame.classList.toggle('has-image', Boolean(imageEditorDraft.image)); frame.setAttribute('style', imageEditorDraft.image ? `--image:url('${imageEditorDraft.image}');--x:${imageEditorDraft.positionX}%;--y:${imageEditorDraft.positionY}%;--zoom:${imageEditorDraft.zoom}` : ''); const fallback = category === 'Profile' ? `<strong class="sl-profile-initials">${html(initials(currentPersonaName()))}</strong><small>PERSONA</small>` : categorySvg(category, imageEditorDraft.preset); frame.innerHTML = imageEditorDraft.image ? '<i></i><b></b>' : `${fallback}<b></b>`; } document.querySelectorAll('[data-sl-preset]').forEach(button => button.classList.toggle('is-active', button.dataset.slPreset === imageEditorDraft.preset)); [['sl-image-x-output', `${Math.round(imageEditorDraft.positionX)}%`], ['sl-image-y-output', `${Math.round(imageEditorDraft.positionY)}%`], ['sl-image-zoom-output', `${imageEditorDraft.zoom.toFixed(2)}×`], ['sl-image-x', imageEditorDraft.positionX], ['sl-image-y', imageEditorDraft.positionY], ['sl-image-zoom', imageEditorDraft.zoom]].forEach(([id, value]) => { const control = document.getElementById(id); if (control) control.value !== undefined ? control.value = String(value) : control.textContent = String(value); }); }
+function refreshImageEditorPreview() { const preview = document.getElementById('sl-image-editor-preview'); if (!preview || !imageEditorDraft) return; const frame = preview.querySelector('.sl-image-frame'); const editor = document.getElementById('sl-image-editor'); const category = editor?.dataset.category || 'Profile'; if (frame) { frame.classList.toggle('has-image', Boolean(imageEditorDraft.image)); frame.setAttribute('style', imageEditorDraft.image ? `--image:url('${imageEditorDraft.image}');--x:${imageEditorDraft.positionX}%;--y:${imageEditorDraft.positionY}%;--zoom:${imageEditorDraft.zoom}` : ''); const fallback = category === 'Profile' ? `<strong class="sl-profile-initials">${html(initials(currentPersonaName()))}</strong><small>PERSONA</small>` : category === 'Summon' ? `<strong class="sl-summon-letter">${html(editor?.dataset.fallback || '?')}</strong><small>UNIT</small>` : categorySvg(category, imageEditorDraft.preset); frame.innerHTML = imageEditorDraft.image ? '<i></i><b></b>' : `${fallback}<b></b>`; } document.querySelectorAll('[data-sl-preset]').forEach(button => button.classList.toggle('is-active', button.dataset.slPreset === imageEditorDraft.preset)); [['sl-image-x-output', `${Math.round(imageEditorDraft.positionX)}%`], ['sl-image-y-output', `${Math.round(imageEditorDraft.positionY)}%`], ['sl-image-zoom-output', `${imageEditorDraft.zoom.toFixed(2)}×`], ['sl-image-x', imageEditorDraft.positionX], ['sl-image-y', imageEditorDraft.positionY], ['sl-image-zoom', imageEditorDraft.zoom]].forEach(([id, value]) => { const control = document.getElementById(id); if (control) control.value !== undefined ? control.value = String(value) : control.textContent = String(value); }); }
 
 function bindImageGestures() {
     const preview = document.getElementById('sl-image-editor-preview'); if (!preview) return; const pointers = new Map(); imageGesture = { pointers, center: null, distance: 0 };
@@ -1272,11 +1300,16 @@ function bindImageGestures() {
     preview.addEventListener('pointerup', release); preview.addEventListener('pointercancel', release); preview.addEventListener('wheel', event => { if (!imageEditorDraft?.image) return; event.preventDefault(); imageEditorDraft.zoom = number(imageEditorDraft.zoom + (event.deltaY < 0 ? .08 : -.08), 1, 1, 3); refreshImageEditorPreview(); }, { passive: false });
 }
 
-async function saveImageEditor() { if (!imageEditorTarget || !imageEditorDraft) return; const state = getState(); if (imageEditorTarget === 'profile') state.profile = normalizeImage(imageEditorDraft); else if (String(imageEditorTarget).startsWith('skill:')) { const skill = state.skills.find(entry => entry.id === String(imageEditorTarget).slice(6)); if (!skill) return; skill.icon = normalizeImage(imageEditorDraft); } else { const item = state.inventory.find(entry => entry.id === imageEditorTarget); if (!item) return; item.icon = normalizeImage(imageEditorDraft); } await persistState(state, 'ui-image-update', { detect: false }); closeSubmodals(); systemNotice('system', 'IMAGE SAVED', 'Stored in this chat only'); }
+async function saveImageEditor() { if (!imageEditorTarget || !imageEditorDraft) return; const state = getState(); if (imageEditorTarget === 'profile') state.profile = normalizeImage(imageEditorDraft); else if (String(imageEditorTarget).startsWith('skill:')) { const skill = state.skills.find(entry => entry.id === String(imageEditorTarget).slice(6)); if (!skill) return; skill.icon = normalizeImage(imageEditorDraft); } else if (String(imageEditorTarget).startsWith('summon:')) { const unit = state.shadowArmy.find(entry => entry.id === String(imageEditorTarget).slice(7)); if (!unit) return; unit.portrait = normalizeImage(imageEditorDraft); } else { const item = state.inventory.find(entry => entry.id === imageEditorTarget); if (!item) return; item.icon = normalizeImage(imageEditorDraft); } await persistState(state, 'ui-image-update', { detect: false }); closeSubmodals(); systemNotice('system', 'IMAGE SAVED', 'Stored in this chat only'); }
 function closeSubmodals() { document.querySelectorAll('.sl-submodal').forEach(modal => { modal.hidden = true; modal.innerHTML = ''; }); selectedItemId = ''; selectedQuestId = ''; selectedQuestRewardId = ''; selectedSkillId = ''; selectedShadowId = ''; summonDismissArmed = ''; imageEditorTarget = null; imageEditorDraft = null; imageGesture = null; }
 
 function handleInterfaceClick(event) {
     const pressed = event.target.closest('button, .sl-shop-item, .sl-quest-card'); if (pressed) { pressed.classList.remove('sl-pressed'); requestAnimationFrame(() => pressed.classList.add('sl-pressed')); setTimeout(() => pressed.classList.remove('sl-pressed'), 360); }
+    const directSummonImage = event.target.closest('[data-sl-summon-image]')?.dataset.slSummonImage;
+    if (directSummonImage) { openImageEditor(`summon:${directSummonImage}`); return; }
+    if (event.target.closest('[data-sl-action]')?.dataset.slAction === 'edit-selected-summon-image') {
+        const id = selectedShadowId; closeSubmodals(); openImageEditor(`summon:${id}`); return;
+    }
     const action = event.target.closest('[data-sl-action]')?.dataset.slAction; const summonButton = event.target.closest('[data-sl-summon-action]'); const summonAction = summonButton?.dataset.slSummonAction; const summonId = summonButton?.dataset.summonId; const tab = event.target.closest('[data-sl-tab]')?.dataset.slTab; const item = event.target.closest('[data-sl-item]')?.dataset.slItem; const quest = event.target.closest('[data-sl-quest]')?.dataset.slQuest; const rewardOption = event.target.closest('[data-sl-reward-option]')?.dataset.slRewardOption; const skill = event.target.closest('[data-sl-skill]')?.dataset.slSkill; const skillImage = event.target.closest('[data-sl-skill-image]')?.dataset.slSkillImage; const shadow = event.target.closest('[data-sl-shadow]')?.dataset.slShadow; const preset = event.target.closest('[data-sl-preset]')?.dataset.slPreset; const upgrade = event.target.closest('[data-sl-upgrade]')?.dataset.slUpgrade; const buy = event.target.closest('[data-sl-buy]')?.dataset.slBuy; const unequip = event.target.closest('[data-sl-unequip]')?.dataset.slUnequip; const pager = event.target.closest('[data-sl-page]');
     if (summonAction && summonId) manageSummon(summonId, summonAction); else if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'generate-quest-rewards') generateQuestRewardOptions(selectedQuestId); else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'disable-aura') disableAura(); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
 }
@@ -1323,6 +1356,7 @@ function bindSettingsDrawer() {
     bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance);
     bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance);
     bindSettingControl('sl-system-sidebar-position', 'sidebarPosition', applyAppearance);
+    bindSettingControl('sl-system-layout-mode', 'layoutMode', applyAppearance);
     bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface);
     const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`;
     const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); const reset = document.getElementById('sl-system-reset-event-position');
