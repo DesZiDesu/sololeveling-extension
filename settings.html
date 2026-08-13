@@ -1,7 +1,7 @@
 <div id="sl-system-settings" class="sl-system-settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header interactable" tabindex="0" role="button" aria-expanded="false">
-            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.6.0</span></b>
+            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.6.1</span></b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down" aria-hidden="true"></div>
         </div>
         <div class="inline-drawer-content">
@@ -22,6 +22,10 @@
                 <input id="sl-system-inject-state" type="checkbox" />
                 <span>Include current status in the role-play prompt</span>
             </label>
+            <label class="checkbox_label" for="sl-system-smart-fallback">
+                <input id="sl-system-smart-fallback" type="checkbox" />
+                <span>Automatically repair missed updates only on System-related replies</span>
+            </label>
 
             <div class="sl-system-color-row" aria-label="Interface colors">
                 <label class="sl-system-color-field" for="sl-system-accent"><input id="sl-system-accent" type="color" value="#35bfff" /><span>Main</span></label>
@@ -32,6 +36,7 @@
                 <label class="sl-system-settings-field" for="sl-system-glass"><span>Glass opacity</span><input id="sl-system-glass" type="range" min="55" max="98" value="90" /></label>
                 <label class="sl-system-settings-field" for="sl-system-glow"><span>Animated glow</span><input id="sl-system-glow" type="range" min="0" max="100" value="58" /></label>
                 <label class="sl-system-settings-field" for="sl-system-notification-position"><span>System notification position</span><select id="sl-system-notification-position"><option value="top-center">Top center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-center">Bottom center</option></select></label>
+                <label class="sl-system-settings-field" for="sl-system-language"><span>Interface language</span><select id="sl-system-language"><option value="auto">Auto / อัตโนมัติ</option><option value="en">English</option><option value="th">ไทย</option></select></label>
             </div>
 
             <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The System uses SillyTavern’s active provider/model. Profile, scene, missions, skills, activation words, currency, and images are saved only in the active chat metadata.</span></div>
