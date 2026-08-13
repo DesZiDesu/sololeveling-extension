@@ -4,7 +4,7 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
-Version 0.7.2 replaces the permanently visible top launcher with a compact right-edge half-circle dock. Tap/click the handle or swipe inward to reveal one animated System shortcut, then tap the handle again or swipe outward to collapse it. The top Dynamic Island now stays visible only while the AI is responding or briefly while a System operation runs.
+Version 0.7.3 anchors the half-circle launcher to the true vertical center of either screen edge, with a Left/Right setting. It also adds automatic multi-level EXP rollover with excess EXP carryover and stat-point awards, plus redesigned HP, MP, EXP, and attribute modules.
 
 - Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
 - Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation.
@@ -12,7 +12,9 @@ Version 0.7.2 replaces the permanently visible top launcher with a compact right
 - Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
 - AI-powered shop refill and item search with support for current and legacy SillyTavern quiet-generation signatures and tolerant JSON parsing.
 - A temporary sharp rectangular Dynamic Island with compact/full display modes while the AI is responding or a System operation is running; it clears automatically afterward so SillyTavern’s top controls remain accessible.
-- A collapsed right-edge half-circle launcher with inward-swipe and tap/click controls, an animated one-button tray, and immediate access to the full System interface on mobile and PC.
+- A collapsed half-circle launcher centered on the selected Left or Right screen edge, with inward-swipe and tap/click controls, an animated one-button tray, and immediate access to the full System interface on mobile and PC.
+- Automatic EXP rollover raises the Player level at the threshold, carries excess EXP into the next level, scales the next requirement, and grants three stat points per level.
+- Redesigned segmented HP/MP monitors, progression route, and responsive attribute matrix.
 - A separate draggable milestone alert window over the main chat, with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal; both notification layers hide while the full System panel is open.
 - Chat-confirmed summon, wield, equip, sheathe, dismiss, and unequip actions update canonical equipment state in English or Thai and reconcile registered equipment stat bonuses.
 - Animated particles, responsive selection motion, and a subtly animated profile frame.

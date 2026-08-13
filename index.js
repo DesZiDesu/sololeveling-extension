@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.7.2';
+const UI_VERSION = '0.7.3';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     glowStrength: 58,
     notificationPosition: 'top-center',
     notificationMode: 'compact',
+    sidebarPosition: 'right',
     eventNotificationX: null,
     eventNotificationY: null,
     language: 'auto',
@@ -157,6 +158,7 @@ function getSettings() {
     for (const key of ['accentColor', 'backgroundColor', 'particleColor']) if (!/^#[0-9a-f]{6}$/i.test(settings[key])) settings[key] = DEFAULT_SETTINGS[key];
     if (!['top-center', 'top-left', 'top-right', 'bottom-center'].includes(settings.notificationPosition)) settings.notificationPosition = DEFAULT_SETTINGS.notificationPosition;
     if (!['compact', 'full'].includes(settings.notificationMode)) settings.notificationMode = DEFAULT_SETTINGS.notificationMode;
+    if (!['left', 'right'].includes(settings.sidebarPosition)) settings.sidebarPosition = DEFAULT_SETTINGS.sidebarPosition;
     for (const key of ['eventNotificationX', 'eventNotificationY']) {
         if (settings[key] !== null && settings[key] !== undefined && Number.isFinite(Number(settings[key]))) settings[key] = number(settings[key], null, 0, 100);
         else settings[key] = null;
@@ -181,6 +183,8 @@ function applyAppearance() {
     root.style.setProperty('--sl-system-glow-size', `${Math.round(48 * settings.glowStrength / 100)}px`);
     root.style.setProperty('--sl-system-particle-opacity', String(.22 + (settings.glowStrength / 100) * .52));
     const island = document.getElementById('sl-system-island'); if (island) { island.setAttribute('data-position', settings.notificationPosition); island.setAttribute('data-view', settings.notificationMode); const icon = island.querySelector('[data-sl-island-mode] i'); if (icon) icon.className = `fa-solid ${settings.notificationMode === 'compact' ? 'fa-expand' : 'fa-compress'}`; }
+    const edgeLauncher = document.getElementById('sl-system-edge-launcher'); if (edgeLauncher) edgeLauncher.dataset.side = settings.sidebarPosition;
+    positionEdgeLauncher();
     positionEventNotice();
 }
 
@@ -360,6 +364,7 @@ function normalizeState(source = {}, fallback = DEFAULT_STATE) {
     base.player = { ...base.player, ...player, stats: { ...base.player.stats, ...(player.stats && typeof player.stats === 'object' ? player.stats : {}) } };
     if (base.player.stats.sense !== undefined && base.player.stats.perception === DEFAULT_STATE.player.stats.perception) base.player.stats.perception = base.player.stats.sense;
     for (const key of ['level', 'experience', 'experienceRequired', 'hp', 'maxHp', 'mp', 'maxMp', 'fatigue', 'statPoints']) base.player[key] = number(base.player[key], DEFAULT_STATE.player[key], 0, 999999999);
+    base.player.level = Math.max(1, base.player.level); base.player.experienceRequired = Math.max(1, base.player.experienceRequired); base.player.maxHp = Math.max(1, base.player.maxHp); base.player.maxMp = Math.max(1, base.player.maxMp);
     for (const key of ['rank', 'condition', 'name', 'title', 'job']) base.player[key] = text(base.player[key], DEFAULT_STATE.player[key], 100);
     base.player.titles = Array.isArray(player.titles) ? player.titles.map(value => text(value, '', 100)).filter(Boolean).slice(0, 100) : [];
     const legacyGold = number(player.gold, DEFAULT_STATE.currency.amount, 0, 999999999);
@@ -386,6 +391,18 @@ function getState() {
     return saved && typeof saved === 'object' ? normalizeState(saved) : normalizeState();
 }
 
+function settlePlayerProgression(state) {
+    let levelsGained = 0;
+    while (state.player.experience >= state.player.experienceRequired && levelsGained < 1000) {
+        state.player.experience -= state.player.experienceRequired;
+        state.player.level += 1;
+        state.player.statPoints += 3;
+        state.player.experienceRequired = Math.max(1, Math.ceil(state.player.experienceRequired * 1.2));
+        levelsGained += 1;
+    }
+    return levelsGained;
+}
+
 function settleQuestPenalties(state) {
     for (const quest of state.quests) {
         const failed = ['failed', 'expired'].includes(String(quest.status).toLowerCase());
@@ -404,6 +421,7 @@ async function persistState(nextState, source = 'ui-action', options = {}) {
     if (!currentContext.getCurrentChatId?.()) { systemNotice('warning', 'Open a chat before changing The System.'); return false; }
     const previous = getState();
     const next = settleQuestPenalties(normalizeState(nextState, previous));
+    settlePlayerProgression(next);
     next.updatedAt = new Date().toISOString(); next.updateSource = source;
     currentContext.chatMetadata ||= {}; currentContext.chatMetadata[METADATA_KEY] = next;
     updatePrompt(next); renderAll(); await currentContext.saveMetadata?.();
@@ -444,6 +462,7 @@ function patchInstructions() {
         'UI pendingActions were already applied to canonical state. Acknowledge their consequences naturally in the next reply and do not charge, consume, equip, or add their values twice.',
         'Treat explicit equipment commands in English or Thai—such as summon dagger, summon weapon, equip/wield/draw the sword, เรียกมีด, อัญเชิญกริช, ถืออาวุธ, or สวมใส่—as equipment intent. When the visible reply confirms the item materialized, was held, worn, equipped, or summoned, update the matching equipment slot in the same patch. Use the exact id of the matching owned inventory item: for example ["set","equipment.weapon","steel-dagger"]. If the reply confirms a brand-new System-granted item, upsert the complete item into inventory first and then set its equipment slot. When the reply confirms an item was dismissed, sheathed, removed, or unequipped, set that slot to null. Never only narrate a confirmed equipment change without updating equipment state.',
         'The extension automatically applies and removes registered equipment stat bonuses when an assistant patch changes equipment. Do not separately inc or set player.stats for the same equip/unequip action.',
+        'The extension owns Player EXP rollover. Update player.experience when EXP is earned, but do not separately change player.level, player.experienceRequired, or player.statPoints for that same EXP gain. When EXP reaches the requirement, the extension carries excess EXP forward, raises the level, increases the next requirement, and grants 3 stat points per level.',
         'Award statPoints on level-up when appropriate. Never silently spend them. Award or deduct currency through currency.amount. For skill use, upsert that skill with its uses counter increased and lastUsedAt updated. Record item use, consumption, damage, healing, mana changes, title gains, quest progress, and equipment changes.',
         'Understand both English and Thai narration and user input. Keep stable ids, and write user-facing names/descriptions in the language used by the role-play.',
         'Record only story-confirmed facts. A clear statement that an objective was completed is confirmation; ordinary discussion, hypotheticals, or plans are not.',
@@ -634,18 +653,25 @@ function syncEdgeLauncherVisibility() {
     launcher.hidden = !visible; if (!visible) setEdgeLauncher(false);
 }
 
+function positionEdgeLauncher() {
+    const launcher = document.getElementById('sl-system-edge-launcher'); if (!launcher) return;
+    const viewport = globalThis.visualViewport;
+    const top = viewport ? viewport.offsetTop + viewport.height / 2 : window.innerHeight / 2;
+    launcher.style.top = `${Math.round(top)}px`;
+}
+
 function buildEdgeLauncher() {
     if (document.getElementById('sl-system-edge-launcher')) return;
-    const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.hidden = true;
+    const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.dataset.side = getSettings().sidebarPosition; launcher.hidden = true;
     launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><button type="button" data-sl-edge-open-system aria-label="Open The System"><span><i class="fa-solid fa-diamond"></i></span><b>THE SYSTEM</b><small>OPEN</small></button><i class="sl-edge-scan"></i></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show System shortcut" aria-expanded="false"><i class="fa-solid fa-chevron-left"></i><span></span></button>`;
     const handle = launcher.querySelector('[data-sl-edge-toggle]');
     handle?.addEventListener('click', () => { if (suppressEdgeLauncherClick) { suppressEdgeLauncherClick = false; return; } setEdgeLauncher(!edgeLauncherOpen); });
     handle?.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; edgeLauncherGesture = { id: event.pointerId, x: event.clientX, y: event.clientY }; handle.setPointerCapture?.(event.pointerId); launcher.classList.add('is-touching'); });
-    handle?.addEventListener('pointermove', event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; launcher.classList.toggle('is-peeking', dx < -8); });
-    const release = event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const dy = event.clientY - edgeLauncherGesture.y; if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { suppressEdgeLauncherClick = true; setEdgeLauncher(dx < 0); setTimeout(() => { suppressEdgeLauncherClick = false; }, 0); } launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; };
+    handle?.addEventListener('pointermove', event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const inward = launcher.dataset.side === 'left' ? dx > 8 : dx < -8; launcher.classList.toggle('is-peeking', inward); });
+    const release = event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const dy = event.clientY - edgeLauncherGesture.y; if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { suppressEdgeLauncherClick = true; const inward = launcher.dataset.side === 'left' ? dx > 0 : dx < 0; setEdgeLauncher(inward); setTimeout(() => { suppressEdgeLauncherClick = false; }, 0); } launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; };
     handle?.addEventListener('pointerup', release); handle?.addEventListener('pointercancel', event => { launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; suppressEdgeLauncherClick = false; });
     launcher.querySelector('[data-sl-edge-open-system]')?.addEventListener('click', () => { setEdgeLauncher(false); openInterface(); });
-    document.body.appendChild(launcher); syncEdgeLauncherVisibility();
+    document.body.appendChild(launcher); positionEdgeLauncher(); syncEdgeLauncherVisibility();
 }
 
 function noticeIcon(mode) {
@@ -785,10 +811,12 @@ function renderScene(scene) {
 function renderStatus() {
     const state = getState(); const player = state.player; const name = player.name || context().name1 || 'System User';
     const stats = [['strength', 'STR', 'Strength', 'fa-hand-fist'], ['agility', 'AGI', 'Agility', 'fa-person-running'], ['vitality', 'VIT', 'Vitality', 'fa-heart-pulse'], ['intelligence', 'INT', 'Intelligence', 'fa-brain'], ['perception', 'PER', 'Perception', 'fa-eye']];
+    const vitalCard = (type, value, maximum, icon) => { const progress = percent(value, maximum); return `<article class="sl-vital-card is-${type.toLowerCase()}" style="--vital-progress:${progress}%"><div class="sl-vital-icon"><i class="fa-solid ${icon}"></i><span></span></div><div class="sl-vital-copy"><header><span><b>${type}</b><small>${type === 'HP' ? 'HEALTH' : 'MANA'}</small></span><strong>${value}<em>/ ${maximum}</em></strong></header><div class="sl-vital-track"><i></i><b></b></div><footer><span>${progress}%</span><small>${progress <= 25 ? 'CRITICAL' : progress <= 60 ? 'STABLE' : 'OPTIMAL'}</small></footer></div></article>`; };
+    const expProgress = percent(player.experience, player.experienceRequired); const strongestStat = Math.max(20, ...Object.values(player.stats));
     return `<section class="sl-player-dossier"><button class="sl-profile-avatar" type="button" data-sl-action="edit-profile">${imageFrame(state.profile, 'Profile', 'is-profile')}<span><i class="fa-solid fa-camera"></i> ${t('edit')}</span></button><div class="sl-player-identity"><span class="sl-system-eyebrow">${t('player_identification')}</span><h3>${html(name)}</h3><p>${html(player.title)} <i></i> ${html(player.job)}</p><div class="sl-identity-tags"><span>${t('rank')} ${html(player.rank)}</span><span>${html(player.condition)}</span><span>LV. ${player.level}</span></div></div><div class="sl-level-core"><small>${t('level')}</small><strong>${player.level}</strong><span>${html(player.rank)}-${t('rank')}</span></div></section>
-    <section class="sl-vitals-deck"><div class="sl-dual-vitals"><article><header><span><i class="fa-solid fa-heart-pulse"></i> HP</span><b>${player.hp}<small> / ${player.maxHp}</small></b></header><div class="sl-neon-meter hp"><i style="width:${percent(player.hp, player.maxHp)}%"></i></div></article><article><header><span><i class="fa-solid fa-droplet"></i> MP</span><b>${player.mp}<small> / ${player.maxMp}</small></b></header><div class="sl-neon-meter mp"><i style="width:${percent(player.mp, player.maxMp)}%"></i></div></article></div></section>
-    <section class="sl-exp-deck"><header><span><i class="fa-solid fa-arrow-trend-up"></i> ${t('experience')}</span><b>${player.experience} / ${player.experienceRequired} EXP</b></header><div class="sl-exp-track"><i style="width:${percent(player.experience, player.experienceRequired)}%"></i><b style="left:${percent(player.experience, player.experienceRequired)}%"></b></div><small>${Math.max(0, player.experienceRequired - player.experience)} ${t('until_level')}</small></section>
-    <div class="sl-status-grid"><section class="sl-system-card sl-attributes-card"><header><div><span class="sl-system-eyebrow">${t('ability_matrix')}</span><h4>${t('attributes')}</h4></div><div class="sl-stat-points"><span>${t('available_points')}</span><b>${player.statPoints}</b></div></header><div class="sl-attribute-list">${stats.map(([key, short, label, icon]) => `<article><i class="fa-solid ${icon}"></i><span><b>${short}</b><small>${label}</small></span><strong>${player.stats[key]}</strong><button type="button" data-sl-upgrade="${key}" ${player.statPoints < 1 ? 'disabled' : ''}><i class="fa-solid fa-plus"></i></button></article>`).join('')}</div></section><section class="sl-system-card sl-record-card"><header><div><span class="sl-system-eyebrow">${t('system_record')}</span><h4>${t('current_data')}</h4></div></header><div class="sl-record-list"><article><i class="fa-solid fa-scroll"></i><span>${t('active_missions')}<small>${t('objectives')}</small></span><b>${state.quests.filter(q => q.status.toLowerCase() === 'active').length}</b></article><article><i class="fa-solid fa-layer-group"></i><span>${t('acquired_skills')}<small>${t('ability_registry')}</small></span><b>${state.skills.length}</b></article><article><i class="fa-solid fa-box-open"></i><span>${t('stored_items')}<small>${t('inventory')}</small></span><b>${state.inventory.length}</b></article><article><i class="fa-solid fa-coins"></i><span>${html(state.currency.name)}<small>${t('tab_shop')}</small></span><b>${state.currency.amount.toLocaleString()} ${html(state.currency.symbol)}</b></article></div></section></div>`;
+    <section class="sl-vitals-deck"><div class="sl-dual-vitals">${vitalCard('HP', player.hp, player.maxHp, 'fa-heart-pulse')}${vitalCard('MP', player.mp, player.maxMp, 'fa-droplet')}</div></section>
+    <section class="sl-exp-deck" style="--exp-progress:${expProgress}%"><header><span><i class="fa-solid fa-arrow-trend-up"></i><b>${t('experience')}</b><small>PROGRESSION MATRIX</small></span><strong>${player.experience.toLocaleString()} <em>/ ${player.experienceRequired.toLocaleString()} EXP</em></strong></header><div class="sl-exp-route"><span>LV.${player.level}</span><div class="sl-exp-track"><i></i><b></b><em></em></div><span>LV.${player.level + 1}</span></div><footer><b>${expProgress}% SYNCHRONIZED</b><small>${Math.max(0, player.experienceRequired - player.experience).toLocaleString()} ${t('until_level')}</small></footer></section>
+    <div class="sl-status-grid"><section class="sl-system-card sl-attributes-card"><header><div><span class="sl-system-eyebrow">${t('ability_matrix')}</span><h4>${t('attributes')}</h4></div><div class="sl-stat-points"><span>${t('available_points')}</span><b>${player.statPoints}</b></div></header><div class="sl-attribute-list">${stats.map(([key, short, label, icon], index) => `<article data-stat="${key}" style="--stat-progress:${percent(player.stats[key], strongestStat)}%;--stat-index:${index}"><span class="sl-attribute-emblem"><i class="fa-solid ${icon}"></i></span><span class="sl-attribute-copy"><b>${short}</b><small>${label}</small><i><em></em></i></span><strong>${player.stats[key]}</strong><button type="button" data-sl-upgrade="${key}" ${player.statPoints < 1 ? 'disabled' : ''} aria-label="Increase ${label}"><i class="fa-solid fa-plus"></i></button></article>`).join('')}</div></section><section class="sl-system-card sl-record-card"><header><div><span class="sl-system-eyebrow">${t('system_record')}</span><h4>${t('current_data')}</h4></div></header><div class="sl-record-list"><article><i class="fa-solid fa-scroll"></i><span>${t('active_missions')}<small>${t('objectives')}</small></span><b>${state.quests.filter(q => q.status.toLowerCase() === 'active').length}</b></article><article><i class="fa-solid fa-layer-group"></i><span>${t('acquired_skills')}<small>${t('ability_registry')}</small></span><b>${state.skills.length}</b></article><article><i class="fa-solid fa-box-open"></i><span>${t('stored_items')}<small>${t('inventory')}</small></span><b>${state.inventory.length}</b></article><article><i class="fa-solid fa-coins"></i><span>${html(state.currency.name)}<small>${t('tab_shop')}</small></span><b>${state.currency.amount.toLocaleString()} ${html(state.currency.symbol)}</b></article></div></section></div>`;
 }
 
 function questProgress(quest) {
@@ -1106,7 +1134,7 @@ function rebuildLocalizedInterface() {
 
 function resetEventNoticePosition() { const settings = getSettings(); settings.eventNotificationX = null; settings.eventNotificationY = null; saveSettings(); positionEventNotice(); }
 
-function bindSettingsDrawer() { bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindCheckbox('sl-system-smart-fallback', 'smartFallback'); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-background', 'backgroundColor', applyAppearance); bindSettingControl('sl-system-particle', 'particleColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance); bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance); bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance); bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface); const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`; const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); const reset = document.getElementById('sl-system-reset-event-position'); if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; if (reset) reset.onclick = resetEventNoticePosition; applyAppearance(); }
+function bindSettingsDrawer() { bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindCheckbox('sl-system-smart-fallback', 'smartFallback'); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-background', 'backgroundColor', applyAppearance); bindSettingControl('sl-system-particle', 'particleColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance); bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance); bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance); bindSettingControl('sl-system-sidebar-position', 'sidebarPosition', applyAppearance); bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface); const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`; const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); const reset = document.getElementById('sl-system-reset-event-position'); if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; if (reset) reset.onclick = resetEventNoticePosition; applyAppearance(); }
 
 async function addSettingsDrawer() { if (document.getElementById('sl-system-settings')) { bindSettingsDrawer(); return true; } const container = document.getElementById('extensions_settings2'); if (!container) return false; const rendered = await context().renderExtensionTemplateAsync?.(EXTENSION_FOLDER, 'settings'); if (!rendered) return false; container.insertAdjacentHTML('beforeend', rendered); bindSettingsDrawer(); return true; }
 function observeSettingsDrawer() { if (settingsObserver) return; settingsObserver = new MutationObserver(async () => { try { if (await addSettingsDrawer()) { settingsObserver.disconnect(); settingsObserver = null; } } catch (error) { console.error('[The System] Settings drawer failed.', error); } }); settingsObserver.observe(document.body, { childList: true, subtree: true }); }
@@ -1127,7 +1155,7 @@ function bindChatEvents() {
 
 async function initialize() {
     if (initialized) return; initialized = true;
-    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', positionEventNotice, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
+    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); const savedState = getState(); if (savedState.accepted && savedState.player.experience >= savedState.player.experienceRequired) await persistState(savedState, 'automatic-level-up'); else updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', () => { positionEventNotice(); positionEdgeLauncher(); }, { passive: true }); globalThis.visualViewport?.addEventListener('resize', positionEdgeLauncher, { passive: true }); globalThis.visualViewport?.addEventListener('scroll', positionEdgeLauncher, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
     catch (error) { initialized = false; console.error('[The System] Failed to initialize.', error); }
 }
 
