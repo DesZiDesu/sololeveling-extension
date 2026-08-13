@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.7.0';
+const UI_VERSION = '0.7.1';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -438,6 +438,8 @@ function patchInstructions() {
         'Shadow Extraction uses system:"shadow-army". When extraction succeeds, upsert shadowArmy with {id,name,rank,level,class,status,description,stats:{strength,agility,vitality,intelligence,perception},abilities:[]}. Update individual shadows as they level or change.',
         'Update scene.date, scene.day, scene.dayCount, scene.year, scene.time, scene.period, scene.place, scene.location, scene.position, scene.temperature, scene.weather, and scene.season whenever the story confirms a change. scene.position must say where the user is physically standing plus a nearby reference, such as "Standing beside the dungeon gate, near the eastern guard post." Leave unknown or unchanged values alone.',
         'UI pendingActions were already applied to canonical state. Acknowledge their consequences naturally in the next reply and do not charge, consume, equip, or add their values twice.',
+        'Treat explicit equipment commands in English or Thai—such as summon dagger, summon weapon, equip/wield/draw the sword, เรียกมีด, อัญเชิญกริช, ถืออาวุธ, or สวมใส่—as equipment intent. When the visible reply confirms the item materialized, was held, worn, equipped, or summoned, update the matching equipment slot in the same patch. Use the exact id of the matching owned inventory item: for example ["set","equipment.weapon","steel-dagger"]. If the reply confirms a brand-new System-granted item, upsert the complete item into inventory first and then set its equipment slot. When the reply confirms an item was dismissed, sheathed, removed, or unequipped, set that slot to null. Never only narrate a confirmed equipment change without updating equipment state.',
+        'The extension automatically applies and removes registered equipment stat bonuses when an assistant patch changes equipment. Do not separately inc or set player.stats for the same equip/unequip action.',
         'Award statPoints on level-up when appropriate. Never silently spend them. Award or deduct currency through currency.amount. For skill use, upsert that skill with its uses counter increased and lastUsedAt updated. Record item use, consumption, damage, healing, mana changes, title gains, quest progress, and equipment changes.',
         'Understand both English and Thai narration and user input. Keep stable ids, and write user-facing names/descriptions in the language used by the role-play.',
         'Record only story-confirmed facts. A clear statement that an objective was completed is confirmation; ordinary discussion, hypotheticals, or plans are not.',
@@ -489,17 +491,28 @@ function upsertById(list, value) { if (!value || typeof value !== 'object' || !t
 
 function applyPatch(sourceState, patch) {
     if (!patch || !Array.isArray(patch.ops)) return { next: sourceState, accepted: 0, summary: '' };
-    const next = normalizeState(clone(sourceState)); let accepted = 0;
+    const previous = normalizeState(clone(sourceState));
+    const next = clone(previous); let accepted = 0; let patchChangesPlayerStats = false;
     for (const operation of patch.ops.slice(0, 80)) {
         if (!Array.isArray(operation) || operation.length < 3) continue;
         const [verb, path, value] = operation; if (!['set', 'inc', 'upsert', 'delete'].includes(verb)) continue;
+        if (String(path) === 'player.stats' || String(path).startsWith('player.stats.')) patchChangesPlayerStats = true;
         if (verb === 'set' && setPath(next, path, value)) accepted += 1;
         if (verb === 'inc' && typeof getPath(next, path) === 'number' && Number.isFinite(Number(value))) { setPath(next, path, getPath(next, path) + Number(value)); accepted += 1; }
         if (verb === 'upsert' && Array.isArray(getPath(next, path)) && upsertById(getPath(next, path), value)) accepted += 1;
         if (verb === 'delete' && Array.isArray(getPath(next, path))) { const list = getPath(next, path); const id = typeof value === 'object' ? value.id : value; const filtered = list.filter(entry => String(entry?.id) !== String(id)); if (filtered.length !== list.length) { setPath(next, path, filtered); accepted += 1; } }
     }
     next.pendingActions = [];
-    return { next: normalizeState(next), accepted, summary: text(patch.summary, '', 300) };
+    const normalizedNext = normalizeState(next);
+    if (!patchChangesPlayerStats) {
+        for (const slot of Object.keys(normalizedNext.equipment)) {
+            const oldItemId = previous.equipment[slot]; const newItemId = normalizedNext.equipment[slot];
+            if (oldItemId === newItemId) continue;
+            adjustEquipmentStats(normalizedNext, previous.inventory.find(item => item.id === oldItemId), -1);
+            adjustEquipmentStats(normalizedNext, normalizedNext.inventory.find(item => item.id === newItemId), 1);
+        }
+    }
+    return { next: normalizeState(normalizedNext), accepted, summary: text(patch.summary, '', 300) };
 }
 
 function extractPatch(message) {
@@ -529,7 +542,7 @@ async function processAssistantPatch(messageId, generationType = '') {
 
 function analyzerPrompt(state, transcript) { return `Review only the latest completed role-play turn and return JSON for The System.\nCURRENT STATE:\n${JSON.stringify(stateForPrompt(state))}\nLATEST TURN:\n${transcript}\n${patchInstructions()}\nReturn only {"ops":[],"summary":"..."}.`; }
 
-const SYSTEM_SIGNAL_PATTERN = /\b(quest|mission|objective|complete(?:d)?|progress|push[ -]?ups?|sit[ -]?ups?|run(?:ning)?|skill|ability|mastery|arise|shadow|item|inventory|equip(?:ped|ment)?|wear|use[sd]?|consume[sd]?|potion|hp|mp|health|mana|heal(?:ed|ing)?|damage[sd]?|cure[sd]?|detox|poison|level|exp(?:erience)?|stat|strength|agility|vitality|intelligence|perception|shop|buy|bought|purchase[sd]?|scene|location|position|standing|weather|time)\b|ภารกิจ|วัตถุประสงค์|สำเร็จ|เสร็จ|ความคืบหน้า|วิดพื้น|ซิทอัพ|วิ่ง|สกิล|ความชำนาญ|อาไรซ์|เงา|ไอเทม|คลัง|สวมใส่|ถอด|ใช้|กิน|โพชั่น|พลังชีวิต|มานา|ฟื้นฟู|บาดเจ็บ|รักษา|ถอนพิษ|เลเวล|ค่าประสบการณ์|ค่าสถานะ|ร้านค้า|ซื้อ|ฉาก|สถานที่|ตำแหน่ง|ยืน|อากาศ|เวลา/i;
+const SYSTEM_SIGNAL_PATTERN = /\b(quest|mission|objective|complete(?:d)?|progress|push[ -]?ups?|sit[ -]?ups?|run(?:ning)?|skill|ability|mastery|arise|shadow|item|inventory|equip(?:ped|ment)?|wear|wield|draw|sheathe|summon|materiali[sz]e|dismiss|dagger|sword|weapon|use[sd]?|consume[sd]?|potion|hp|mp|health|mana|heal(?:ed|ing)?|damage[sd]?|cure[sd]?|detox|poison|level|exp(?:erience)?|stat|strength|agility|vitality|intelligence|perception|shop|buy|bought|purchase[sd]?|scene|location|position|standing|weather|time)\b|ภารกิจ|วัตถุประสงค์|สำเร็จ|เสร็จ|ความคืบหน้า|วิดพื้น|ซิทอัพ|วิ่ง|สกิล|ความชำนาญ|อาไรซ์|เงา|ไอเทม|คลัง|สวมใส่|ถอด|เรียก|อัญเชิญ|กริช|มีด|ดาบ|อาวุธ|ถือ|เก็บอาวุธ|ใช้|กิน|โพชั่น|พลังชีวิต|มานา|ฟื้นฟู|บาดเจ็บ|รักษา|ถอนพิษ|เลเวล|ค่าประสบการณ์|ค่าสถานะ|ร้านค้า|ซื้อ|ฉาก|สถานที่|ตำแหน่ง|ยืน|อากาศ|เวลา/i;
 
 function latestTurnTranscript(messageId) {
     const chat = context().chat || []; const assistant = chat[messageId];
@@ -584,6 +597,7 @@ function systemNotice(mode, title, detail = '', destination = {}) {
 }
 
 function isInterfaceOpen() { return Boolean(document.getElementById('sl-system-overlay')?.classList.contains('is-open')); }
+function shouldShowNotifications() { return Boolean(context().getCurrentChatId?.()) && !isInterfaceOpen(); }
 
 function playNextNotice() {
     if (islandBusy || !islandQueue.length) return;
@@ -592,7 +606,7 @@ function playNextNotice() {
     island.dataset.targetTab = item.destination?.tab || '';
     island.dataset.targetQuest = item.destination?.questId || '';
     island.dataset.targetSkill = item.destination?.skillId || '';
-    island.querySelector('strong').textContent = item.title; island.querySelector('small').textContent = item.detail || 'The System has been updated'; island.classList.toggle('is-visible', isInterfaceOpen());
+    island.querySelector('strong').textContent = item.title; island.querySelector('small').textContent = item.detail || 'The System has been updated'; island.classList.toggle('is-visible', shouldShowNotifications());
     clearTimeout(islandTimer); islandTimer = setTimeout(() => { islandBusy = false; playNextNotice(); }, item.mode === 'working' ? 1200 : 2600);
 }
 
@@ -640,7 +654,7 @@ function playNextEventNotice() {
     const interactive = Boolean(eventNoticeCurrent.destination?.tab || eventNoticeCurrent.destination?.questId || eventNoticeCurrent.destination?.skillId || eventNoticeCurrent.destination?.itemId || eventNoticeCurrent.destination?.shadowId);
     panel.classList.toggle('is-interactive', interactive); panel.querySelector('[data-sl-event-open]').hidden = !interactive;
     panel.querySelector('.sl-event-queue').textContent = String(eventNoticeQueue.length + 1).padStart(2, '0');
-    panel.classList.toggle('is-visible', isInterfaceOpen()); positionEventNotice();
+    panel.classList.toggle('is-visible', shouldShowNotifications()); positionEventNotice();
 }
 
 function dismissEventNotice() {
@@ -674,6 +688,13 @@ function announceChanges(before, after, source) {
         if (item.activationRequired && !item.activationWord) notices.push(['warning', 'ACTIVATION WORD REQUIRED', `Tap to configure ${item.name}`, { tab: 'skills', skillId: item.id }]);
     });
     after.skills.forEach(item => { const old = before.skills.find(entry => entry.id === item.id); if (old && item.uses > old.uses) notices.push(['skill', 'SKILL ACTIVATED', `${item.name} · Mastery ${item.mastery}/${item.masteryRequired}`, { tab: 'skills', skillId: item.id }]); });
+    for (const slot of Object.keys(after.equipment)) {
+        const oldItemId = before.equipment[slot]; const newItemId = after.equipment[slot];
+        if (oldItemId === newItemId) continue;
+        const oldItem = before.inventory.find(item => item.id === oldItemId); const newItem = after.inventory.find(item => item.id === newItemId);
+        if (newItem) notices.push(['equipment', `${slot === 'weapon' ? 'WEAPON' : slot.toUpperCase()} EQUIPPED!`, oldItem ? `${newItem.name} · Replaced ${oldItem.name}` : newItem.name, { tab: 'equipment', itemId: newItem.id }]);
+        else if (oldItem) notices.push(['equipment', `${slot === 'weapon' ? 'WEAPON' : slot.toUpperCase()} UNEQUIPPED`, oldItem.name, { tab: 'equipment' }]);
+    }
     after.inventory.forEach(item => { const old = before.inventory.find(entry => entry.id === item.id); if (!old) notices.push(['item', 'ITEM ACQUIRED!', `${item.name} ×${item.quantity}`, { tab: 'inventory', itemId: item.id }]); else if (item.quantity < old.quantity) notices.push(['item', 'ITEM CONSUMED', `${item.name} ×${old.quantity - item.quantity}`, { tab: 'inventory', itemId: item.id }]); });
     Object.keys(after.player.stats).forEach(stat => { if (after.player.stats[stat] > before.player.stats[stat]) notices.push(['stat', `${stat.toUpperCase()} INCREASED!`, `${before.player.stats[stat]} → ${after.player.stats[stat]}`, { tab: 'status' }]); });
     if (after.currency.amount !== before.currency.amount) notices.push([after.currency.amount > before.currency.amount ? 'reward' : 'shop', `SYSTEM CREDIT ${after.currency.amount > before.currency.amount ? 'ACQUIRED' : 'SPENT'}`, `${before.currency.amount.toLocaleString()} → ${after.currency.amount.toLocaleString()} ${after.currency.symbol}`, { tab: 'shop' }]);
@@ -809,11 +830,11 @@ async function acceptSystem() {
 function declineSystem() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay) return; overlay.classList.add('is-declining'); clearTimeout(transitionTimer); transitionTimer = setTimeout(() => { overlay.classList.remove('is-declining'); closeInterface(); }, 420); }
 
 function openInterface() {
-    try { buildInterface(); const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel'); if (!overlay || !panel) throw new Error('Interface panel unavailable.'); previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); document.getElementById('sl-system-island')?.classList.add('is-visible'); if (eventNoticeCurrent) document.getElementById('sl-system-event-notice')?.classList.add('is-visible'); positionEventNotice(); const state = getState(); showPhase(state.accepted ? 'main' : 'notification'); requestAnimationFrame(() => panel.focus()); }
+    try { buildInterface(); const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel'); if (!overlay || !panel) throw new Error('Interface panel unavailable.'); previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); document.getElementById('sl-system-island')?.classList.remove('is-visible'); document.getElementById('sl-system-event-notice')?.classList.remove('is-visible'); const state = getState(); showPhase(state.accepted ? 'main' : 'notification'); requestAnimationFrame(() => panel.focus()); }
     catch (error) { console.error('[The System] Could not open.', error); systemNotice('error', 'The System could not open', error.message); }
 }
 
-function closeInterface() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay?.classList.contains('is-open')) return; closeSubmodals(); clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open'); document.getElementById('sl-system-island')?.classList.remove('is-visible'); document.getElementById('sl-system-event-notice')?.classList.remove('is-visible'); if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true }); }
+function closeInterface() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay?.classList.contains('is-open')) return; closeSubmodals(); clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open'); if (getState().accepted) document.getElementById('sl-system-island')?.classList.add('is-visible'); if (eventNoticeCurrent) document.getElementById('sl-system-event-notice')?.classList.add('is-visible'); positionEventNotice(); if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true }); }
 
 async function upgradeStat(stat) { const state = getState(); if (!Object.hasOwn(state.player.stats, stat) || state.player.statPoints < 1) return; state.player.stats[stat] += 1; state.player.statPoints -= 1; queueAction(state, 'upgrade-stat', `${stat} increased to ${state.player.stats[stat]}`, { stat, value: state.player.stats[stat] }); await persistState(state, 'ui-stat-upgrade'); }
 

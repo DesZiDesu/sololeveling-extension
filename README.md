@@ -4,15 +4,16 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
-Version 0.7.0 introduces a two-layer notification system: a fixed sharp-corner Dynamic Island with compact/full modes, plus a detailed draggable milestone alert window for levels, missions, rewards, skills, items, equipment, and other confirmed events.
+Version 0.7.1 displays both notification layers over the main SillyTavern chat instead of inside the open System panel. Confirmed chat commands such as “summon dagger” now update the matching equipment slot, apply its registered stat effects, and open a dismissible equipment alert.
 
 - Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
 - Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation.
 - Profile, item, and skill icon editors with position, zoom, uploads, and skill SVG presets.
 - Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
 - AI-powered shop refill and item search with support for current and legacy SillyTavern quiet-generation signatures and tolerant JSON parsing.
-- A fixed-position, sharp rectangular Dynamic Island with compact/full display modes for routine monitoring and synchronization.
-- A separate draggable milestone alert window with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal.
+- A fixed-position, sharp rectangular Dynamic Island with compact/full display modes for routine monitoring and synchronization over the main chat.
+- A separate draggable milestone alert window over the main chat, with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal; both notification layers hide while the full System panel is open.
+- Chat-confirmed summon, wield, equip, sheathe, dismiss, and unequip actions update canonical equipment state in English or Thai and reconcile registered equipment stat bonuses.
 - Animated particles, responsive selection motion, and a subtly animated profile frame.
 - Independent main, background, and particle colors with compact circular color controls.
 - A dedicated Scene tab for date, day, year, time, place, location, specific current position, temperature, weather, and season.
