@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '1.2.1';
+const UI_VERSION = '1.3.0';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -232,7 +232,18 @@ function displayValue(value, fallback = 'None') {
 }
 
 const SUMMONING_PATTERN = /shadow\s*extraction|shadow\s*army|summon(?:ing|er)?|conjur|familiar|necroman|minion|spirit\s*army|beast\s*tam|อัญเชิญ|กองทัพเงา|เรียกบริวาร|เนโครแมน|สัตว์อสูร/i;
-const BUFF_PATTERN = /buff|domain|aura|enhance(?:ment)?|reinforce|empower|เสริมพลัง|อาณาเขต|ออร่า/i;
+
+function canonicalSkillType(value, summoning = false) {
+    const type = text(value, summoning ? 'Summoning' : 'Active', 30).toLowerCase();
+    if (/^(buff|บัฟ)$/.test(type)) return 'Buff';
+    if (/passive|ติดตัว/.test(type)) return 'Passive';
+    if (/summon|conjur|อัญเชิญ/.test(type)) return 'Summoning';
+    if (/utility|support|ช่วยเหลือ/.test(type)) return 'Utility';
+    return 'Active';
+}
+
+function isBuffSkill(skill = {}) { return String(skill.type || '').toLowerCase() === 'buff'; }
+function isSkillMastered(skill = {}) { return Boolean(skill.mastered || number(skill.mastery, 0) >= Math.max(1, number(skill.masteryRequired, 1))); }
 
 function isSummoningSkill(skill = {}) {
     return Boolean(skill.summoning || ['shadow-army', 'summoning'].includes(String(skill.system || '').toLowerCase()) || SUMMONING_PATTERN.test(`${skill.name || ''} ${skill.type || ''} ${skill.description || ''}`));
@@ -392,20 +403,17 @@ function normalizeSkill(source = {}) {
     const summoning = shadowExtraction || isSummoningSkill(source);
     const activationWords = [...new Set((Array.isArray(source.activationWords) ? source.activationWords : [source.activationWord]).map(value => text(value, '', 80)).filter(Boolean))].slice(0, 10);
     const buffSource = source.buff && typeof source.buff === 'object' ? source.buff : {};
-    const skillSummary = `${name} ${source.type || ''} ${source.description || ''}`;
-    const auraSemantic = BUFF_PATTERN.test(skillSummary);
-    const explicitAura = source.aura === true || source.interfaceAura === true;
-    // Older builds normalized a `buff` object onto every skill. Do not interpret
-    // that object—or a stale `buffing` flag on a pure summon—as aura support.
-    const buffing = summoning
-        ? Boolean(auraSemantic || explicitAura)
-        : Boolean(auraSemantic || explicitAura || source.buffing === true || buffSource.enabled === true);
-    const shadowAura = buffing && /shadow/i.test(skillSummary);
+    const type = canonicalSkillType(source.type, summoning);
+    const buffing = type === 'Buff';
+    const masteryRequired = number(source.masteryRequired, 100, 1, 999999999);
+    const rawMastery = number(source.mastery, 0, 0, 999999999);
+    const mastered = Boolean(source.mastered || rawMastery >= masteryRequired);
+    const mastery = mastered ? masteryRequired : Math.min(rawMastery, masteryRequired);
+    const shadowAura = buffing && /shadow/i.test(`${name} ${source.description || ''}`);
     return {
         id: text(source.id, uid('skill'), 100), name, rank: text(source.rank, 'E', 20),
-        type: text(source.type, 'Active', 30), description: text(source.description, 'No skill description recorded.', 1200),
-        level: number(source.level, 1, 1, 999999), mastery: number(source.mastery, 0, 0, 999999999),
-        masteryRequired: number(source.masteryRequired, 100, 1, 999999999),
+        type, description: text(source.description, 'No skill description recorded.', 1200),
+        level: number(source.level, 1, 1, 999999), mastery, masteryRequired, mastered,
         uses: number(source.uses, 0, 0, 999999), lastUsedAt: text(source.lastUsedAt, '', 80),
         activationRequired: Boolean(source.activationRequired || source.voiceActivation || shadowExtraction), activationWords,
         system: shadowExtraction ? 'shadow-army' : text(source.system, summoning ? 'summoning' : '', 60), summoning,
@@ -413,12 +421,14 @@ function normalizeSkill(source = {}) {
         summonCapacityPerLevel: number(source.summonCapacityPerLevel, shadowExtraction ? 5 : 2, 0, 99999),
         buffing,
         buff: {
-            enabled: Boolean(buffSource.enabled),
+            enabled: buffing && Boolean(buffSource.enabled),
             auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowAura ? '#8b5cf6' : '#4f7cff'),
             backgroundColor: hexColor(buffSource.backgroundColor, shadowAura ? '#10081f' : '#050713'),
             particleColor: hexColor(buffSource.particleColor, shadowAura ? '#c4a7ff' : '#866cff'),
-            durationSeconds: number(buffSource.durationSeconds, 60, 5, 86400), cooldownSeconds: number(buffSource.cooldownSeconds, 120, 0, 604800),
-            mpDrain: number(buffSource.mpDrain, 5, 0, 999999), expiresAt: text(buffSource.expiresAt, '', 80), cooldownUntil: text(buffSource.cooldownUntil, '', 80),
+            cooldownSeconds: number(buffSource.cooldownSeconds, 120, 0, 604800),
+            mpDrain: number(buffSource.mpDrain, 5, 0, 999999),
+            expiresAt: '',
+            cooldownUntil: buffing && !mastered ? text(buffSource.cooldownUntil, '', 80) : '',
         },
         icon: normalizeImage({ preset: shadowExtraction ? 'shadow' : 'rune', ...(source.icon || {}) }),
     };
@@ -494,33 +504,43 @@ function getState() {
 
 function timestamp(value) { const parsed = Date.parse(String(value || '')); return Number.isFinite(parsed) ? parsed : 0; }
 function activeAuraSkill(state = getState()) {
-    const now = Date.now();
-    return state.skills.find(skill => skill.buffing && skill.buff?.enabled && state.player.mp > 0 && (!timestamp(skill.buff.expiresAt) || timestamp(skill.buff.expiresAt) > now));
+    return state.skills.find(skill => isBuffSkill(skill) && skill.buff?.enabled && (isSkillMastered(skill) || state.player.mp > 0));
 }
 
 function settleSkillEffects(state, previous, source) {
-    const now = Date.now(); let drained = false;
+    const now = Date.now();
     for (const skill of state.skills) {
-        if (!skill.buffing) continue;
-        const old = previous.skills.find(entry => entry.id === skill.id); const usedNow = Boolean((old && skill.uses > old.uses) || (!old && skill.uses > 0 && skill.lastUsedAt));
-        const coolingDown = timestamp(skill.buff.cooldownUntil) > now;
-        if (usedNow && !coolingDown) {
-            skill.buff.enabled = true; skill.buff.expiresAt = new Date(now + skill.buff.durationSeconds * 1000).toISOString(); skill.buff.cooldownUntil = '';
-            state.player.mp = Math.max(0, state.player.mp - skill.buff.mpDrain); drained = true;
-        } else if (source === 'assistant-patch' && old?.buff?.enabled && skill.buff.enabled && !drained) {
-            state.player.mp = Math.max(0, state.player.mp - skill.buff.mpDrain); drained = true;
+        if (!isBuffSkill(skill)) {
+            skill.buffing = false;
+            skill.buff.enabled = false;
+            skill.buff.expiresAt = '';
+            skill.buff.cooldownUntil = '';
+            continue;
         }
-        if (skill.buff.enabled && ((timestamp(skill.buff.expiresAt) && timestamp(skill.buff.expiresAt) <= now) || state.player.mp <= 0)) {
+        skill.buffing = true;
+        const old = previous.skills.find(entry => entry.id === skill.id); const usedNow = Boolean((old && skill.uses > old.uses) || (!old && skill.uses > 0 && skill.lastUsedAt));
+        const mastered = isSkillMastered(skill);
+        const coolingDown = !mastered && timestamp(skill.buff.cooldownUntil) > now;
+        if (mastered) {
+            skill.mastered = true;
+            skill.mastery = skill.masteryRequired;
+            skill.buff.expiresAt = '';
+            skill.buff.cooldownUntil = '';
+        }
+        if (usedNow && !coolingDown) {
+            skill.buff.enabled = true;
+            skill.buff.expiresAt = '';
+            skill.buff.cooldownUntil = '';
+        }
+        const assistantReply = ['assistant-patch', 'assistant-reply', 'automatic-fallback-sync'].includes(source);
+        if (assistantReply && skill.buff.enabled && !mastered) state.player.mp = Math.max(0, state.player.mp - skill.buff.mpDrain);
+        if (skill.buff.enabled && !mastered && state.player.mp <= 0) {
             skill.buff.enabled = false; skill.buff.expiresAt = ''; skill.buff.cooldownUntil = new Date(now + skill.buff.cooldownSeconds * 1000).toISOString();
         }
     }
 }
 
-function scheduleAuraExpiry(state = getState()) {
-    clearTimeout(auraTimer); auraTimer = null; const skill = state.skills.find(entry => entry.buffing && entry.buff?.enabled); if (!skill) return;
-    const delay = Math.max(0, timestamp(skill.buff.expiresAt) - Date.now());
-    auraTimer = setTimeout(async () => { const next = getState(); const live = next.skills.find(entry => entry.id === skill.id); if (!live?.buff?.enabled) return; live.buff.enabled = false; live.buff.expiresAt = ''; live.buff.cooldownUntil = new Date(Date.now() + live.buff.cooldownSeconds * 1000).toISOString(); await persistState(next, 'skill-aura-expired'); systemNotice('skill', 'SKILL EFFECT ENDED', live.name, { tab: 'skills', skillId: live.id }); }, Math.min(delay + 50, 2147483000));
-}
+function scheduleAuraExpiry() { clearTimeout(auraTimer); auraTimer = null; }
 
 function settlePlayerProgression(state) {
     let levelsGained = 0;
@@ -588,10 +608,10 @@ function patchInstructions() {
         'Every quest must have experienceReward greater than 0 and rewardOptions containing exactly 3 different item rewards. Each option is {id,type:"item",name,amount,item:{complete item}}. When every objective is complete, set status:"Completed" but leave rewardClaimed:false and do not add EXP or items; the user chooses exactly one item and claims it with the guaranteed EXP in the UI.',
         'Daily quests use daily:true, a deadline string, and penalty {hp,mp,currency,experience,description}. Mark status Failed or Expired only when the story confirms the deadline was missed; the extension applies that penalty once.',
         'When the user asks to view, search, open, or refill the System Shop in main chat, populate shop with coherent complete items and prices. Equippable items require slot weapon|head|chest|hands|legs|feet|accessory. Consumables require usable:true and meaningful effects using hp, mp, fatigue (negative reduces fatigue), cure, detoxify, stats, and description. Never create an inert item or merely describe a shop without updating shop state.',
-        'Skills use {id,name,rank,type,description,level,mastery,masteryRequired,uses,lastUsedAt,activationRequired,activationWords:[]}. Increase mastery when a skill is successfully used and raise its level when mastery reaches the required amount.',
+        'Skills use {id,name,rank,type,description,level,mastery,masteryRequired,mastered,uses,lastUsedAt,activationRequired,activationWords:[]}. type must be exactly Active, Passive, Buff, Summoning, or Utility. Increase mastery when a skill is successfully used. When mastery reaches masteryRequired, cap it there and set mastered:true; level remains a separate proficiency value that rises only when training or story progression confirms it.',
         'Voice-activated skills must not activate unless the user says one of that skill\'s saved activationWords. A skill can have multiple phrases. If activationRequired is true and activationWords is empty, do not activate it; direct the user to configure phrases in the Skills tab.',
         'Any summoning skill uses summoning:true and system:"summoning"; Shadow Extraction specifically uses system:"shadow-army". Storage capacity is summonCapacityBase + (level - 1) × summonCapacityPerLevel for every owned summoning skill. Never add a new active summon when capacity is full. When summoning or extraction succeeds, upsert shadowArmy with {id,name,rank,level,class,species,race,status:"Stored"|"Deployed",ownerSkillId,kind:"Shadow"|"Summon",manaCost,condition,hp,maxHp,mp,maxMp,experience,experienceRequired,summonedAt,description,stats:{strength,agility,vitality,intelligence,perception},abilities:[]}. Every active summon has trackable HP, MP, condition, progression, and individual stats; update them when combat or training confirms a change. A dismissed:true unit is permanently released and must never return unless the story explicitly creates a different new soul with a new id. Portrait images are controlled only by the user interface and must never be generated into the patch.',
-        'Buff, domain, aura, and enhancement skills use buffing:true and buff:{auraColor,backgroundColor,particleColor,durationSeconds,cooldownSeconds,mpDrain}. Do not activate a buff before buff.cooldownUntil. When one is successfully activated, increase uses and set lastUsedAt; the extension owns its timed aura, recurring MP drain, disabling, and cooldown, so do not separately deduct buff.mpDrain.',
+        'Only a skill with type:"Buff" can recolor mana or the System interface. A domain, summoning, enhancement, Active, Passive, or Utility skill has no interface aura unless its type is explicitly Buff. Buff skills use buff:{auraColor,backgroundColor,particleColor,cooldownSeconds,mpDrain}. Do not activate an unmastered Buff before buff.cooldownUntil. When a Buff is successfully activated, increase uses and set lastUsedAt; the extension drains buff.mpDrain once after every assistant reply while it remains active, so do not deduct that MP in the patch. At mastery, the Buff has zero MP drain and zero cooldown and the user can toggle it freely in the UI.',
         'Update scene.date, scene.day, scene.dayCount, scene.year, scene.time, scene.period, scene.place, scene.location, scene.position, scene.temperature, scene.weather, and scene.season whenever the story confirms a change. scene.position must say where the user is physically standing plus a nearby reference, such as "Standing beside the dungeon gate, near the eastern guard post." Leave unknown or unchanged values alone.',
         'UI pendingActions were already applied to canonical state. Acknowledge their consequences naturally in the next reply and do not charge, consume, equip, or add their values twice.',
         'Treat explicit equipment commands in English or Thai—such as summon dagger, summon weapon, equip/wield/draw the sword, เรียกมีด, อัญเชิญกริช, ถืออาวุธ, or สวมใส่—as equipment intent. When the visible reply confirms the item materialized, was held, worn, equipped, or summoned, update the matching equipment slot in the same patch. Use the exact id of the matching owned inventory item: for example ["set","equipment.weapon","steel-dagger"]. If the reply confirms a brand-new System-granted item, upsert the complete item into inventory first and then set its equipment slot. When the reply confirms an item was dismissed, sheathed, removed, or unequipped, set that slot to null. Never only narrate a confirmed equipment change without updating equipment state.',
@@ -694,12 +714,13 @@ async function processAssistantPatch(messageId, generationType = '') {
     if (!extracted.found) {
         renderAll();
         const transcript = latestTurnTranscript(messageId);
-        if (getSettings().smartFallback && shouldSmartFallback(transcript)) await smartFallbackSync(transcript);
+        const synchronized = getSettings().smartFallback && shouldSmartFallback(transcript) ? await smartFallbackSync(transcript) : false;
+        if (!synchronized && activeAuraSkill(state)) await persistState(state, 'assistant-reply');
         return;
     }
     message.mes = extracted.visible;
     if (Array.isArray(message.swipes) && Number.isInteger(message.swipe_id) && message.swipes[message.swipe_id] !== undefined) message.swipes[message.swipe_id] = extracted.visible;
-    if (!extracted.patch) { systemNotice('sync', 'System synchronized', 'No valid state update'); return; }
+    if (!extracted.patch) { if (activeAuraSkill(state)) await persistState(state, 'assistant-reply'); systemNotice('sync', 'System synchronized', 'No valid state update'); return; }
     const result = applyPatch(state, extracted.patch);
     if (result.accepted) await persistState(result.next, 'assistant-patch'); else if (activeAuraSkill(state)) await persistState(state, 'assistant-patch'); else systemNotice('sync', 'System synchronized', 'No confirmed state change');
 }
@@ -718,14 +739,15 @@ function shouldSmartFallback(transcript) { return SYSTEM_SIGNAL_PATTERN.test(Str
 
 async function smartFallbackSync(transcript) {
     const currentContext = context();
-    if (smartFallbackBusy || typeof currentContext.generateQuietPrompt !== 'function' || !transcript) return;
+    if (smartFallbackBusy || typeof currentContext.generateQuietPrompt !== 'function' || !transcript) return false;
     smartFallbackBusy = true;
     try {
         const response = await generateQuiet(analyzerPrompt(getState(), transcript), 1200);
         const result = applyPatch(getState(), parseModelJson(response));
-        if (result.accepted) await persistState(result.next, 'automatic-fallback-sync');
+        if (result.accepted) { await persistState(result.next, 'automatic-fallback-sync'); return true; }
     } catch (error) { console.warn('[The System] Automatic fallback sync skipped.', error); }
     finally { smartFallbackBusy = false; }
+    return false;
 }
 
 async function syncLatestTurn() {
@@ -896,7 +918,11 @@ function announceChanges(before, after, source) {
         notices.push(['skill', 'SKILL ACQUIRED', `${item.name} · Rank ${item.rank}`, { tab: 'skills', skillId: item.id }]);
         if (item.activationRequired && !item.activationWords.length) notices.push(['warning', 'VOICE COMMAND REQUIRED', `Tap to configure ${item.name}`, { tab: 'skills', skillId: item.id }]);
     });
-    after.skills.forEach(item => { const old = before.skills.find(entry => entry.id === item.id); if (old && item.uses > old.uses) notices.push(['skill', 'SKILL ACTIVATED', `${item.name} · Mastery ${item.mastery}/${item.masteryRequired}`, { tab: 'skills', skillId: item.id }]); });
+    after.skills.forEach(item => {
+        const old = before.skills.find(entry => entry.id === item.id);
+        if (old && item.uses > old.uses) notices.push(['skill', 'SKILL ACTIVATED', `${item.name} · Mastery ${item.mastery}/${item.masteryRequired}`, { tab: 'skills', skillId: item.id }]);
+        if (old && isSkillMastered(item) && !isSkillMastered(old)) notices.push(['skill', 'SKILL MASTERED!', `${item.name}${isBuffSkill(item) ? ' · MP drain removed' : ' · Maximum proficiency reached'}`, { tab: 'skills', skillId: item.id }]);
+    });
     for (const slot of Object.keys(after.equipment)) {
         const oldItemId = before.equipment[slot]; const newItemId = after.equipment[slot];
         if (oldItemId === newItemId) continue;
@@ -947,7 +973,11 @@ function summonLetter(unit) {
     return (source.trim().charAt(0) || '?').toLocaleUpperCase();
 }
 
-function summonPortrait(unit, className = '') { return imageFrame(unit?.portrait, 'Summon', className, summonLetter(unit)); }
+function summonPortrait(unit, className = '') {
+    const portrait = unit?.portrait || {}; const hasImage = Boolean(portrait.image);
+    const style = `style="--x:${portrait.positionX ?? 50}%;--y:${portrait.positionY ?? 50}%;--zoom:${portrait.zoom ?? 1}"`;
+    return `<span class="sl-image-frame sl-summon-frame ${className}${hasImage ? ' has-image' : ''}" ${style}>${hasImage ? `<img src="${html(portrait.image)}" alt="">` : `<strong class="sl-summon-letter">${html(summonLetter(unit))}</strong>`}<b></b></span>`;
+}
 
 function resourceMeter(label, value, maximum, kind = 'neutral') {
     const progress = percent(value, maximum); const state = progress <= 20 ? 'CRITICAL' : progress <= 55 ? 'LOW' : progress <= 80 ? 'STABLE' : 'OPTIMAL';
@@ -1005,14 +1035,19 @@ function renderQuest() {
 
 function renderSkills() {
     const state = getState(); const pendingActivation = state.skills.filter(skill => skill.activationRequired && !skill.activationWords.length);
-    const skills = state.skills.length ? `<div class="sl-skill-grid">${state.skills.map(skill => { const aura = skill.buff?.enabled; const words = skill.activationWords || []; return `<article class="sl-skill-card${aura ? ' is-aura-active' : ''}"><button type="button" class="sl-skill-icon-button" data-sl-skill-image="${html(skill.id)}" title="Edit ${html(skill.name)} icon">${imageFrame(skill.icon, 'Skill', 'is-skill')}<span><i class="fa-solid fa-camera"></i></span></button><button type="button" class="sl-skill-copy" data-sl-skill="${html(skill.id)}"><span class="sl-skill-kicker">${html(skill.type)} · ${html(skill.rank)}-RANK${isSummoningSkill(skill) ? ' · SUMMONING' : ''}</span><h4>${html(skill.name)}</h4><p>${html(skill.description)}</p><div class="sl-mastery-line"><span><i style="width:${percent(skill.mastery, skill.masteryRequired)}%"></i></span><small>LV. ${skill.level} · MASTERY ${skill.mastery}/${skill.masteryRequired}</small></div><div class="sl-skill-state-row">${skill.activationRequired ? `<strong class="sl-activation-state ${words.length ? 'is-set' : ''}"><i class="fa-solid fa-microphone-lines"></i> ${words.length ? `${html(words[0])}${words.length > 1 ? ` +${words.length - 1}` : ''}` : t('voice_required')}</strong>` : ''}${skill.buffing ? `<strong class="sl-buff-state ${aura ? 'is-active' : ''}"><i class="fa-solid fa-wand-sparkles"></i> ${aura ? 'AURA ACTIVE' : 'AURA READY'}</strong>` : ''}</div></button></article>`; }).join('')}</div>` : `<section class="sl-empty-module"><i class="fa-solid fa-bolt"></i><h4>${t('no_skills')}</h4><p>Skills learned in the story will be registered here.</p></section>`;
+    const skills = state.skills.length ? `<div class="sl-skill-grid">${state.skills.map(skill => {
+        const aura = isBuffSkill(skill) && skill.buff?.enabled; const words = skill.activationWords || []; const mastered = isSkillMastered(skill);
+        const auraState = aura ? 'AURA ACTIVE' : mastered ? 'FREE AURA' : `AURA · ${skill.buff.mpDrain} MP/REPLY`;
+        return `<article class="sl-skill-card${aura ? ' is-aura-active' : ''}${mastered ? ' is-mastered' : ''}"><button type="button" class="sl-skill-icon-button" data-sl-skill-image="${html(skill.id)}" title="Edit ${html(skill.name)} icon">${imageFrame(skill.icon, 'Skill', 'is-skill')}<span class="sl-skill-edit-mark"><i class="fa-solid fa-camera"></i></span></button><button type="button" class="sl-skill-copy" data-sl-skill="${html(skill.id)}"><span class="sl-skill-kicker">${html(skill.type)} · ${html(skill.rank)}-RANK${isSummoningSkill(skill) ? ' · SUMMONING' : ''}</span><h4>${html(skill.name)}</h4><p>${html(skill.description)}</p><div class="sl-mastery-line"><span><i style="width:${percent(skill.mastery, skill.masteryRequired)}%"></i></span><small>LV. ${skill.level} · ${mastered ? 'MASTERED' : `MASTERY ${skill.mastery}/${skill.masteryRequired}`}</small></div><div class="sl-skill-state-row">${skill.activationRequired ? `<strong class="sl-activation-state ${words.length ? 'is-set' : ''}"><i class="fa-solid fa-microphone-lines"></i> ${words.length ? `${html(words[0])}${words.length > 1 ? ` +${words.length - 1}` : ''}` : t('voice_required')}</strong>` : ''}${isBuffSkill(skill) ? `<strong class="sl-buff-state ${aura ? 'is-active' : ''}${mastered ? ' is-mastered' : ''}"><i class="fa-solid fa-wand-sparkles"></i> ${auraState}</strong>` : ''}</div></button></article>`;
+    }).join('')}</div>` : `<section class="sl-empty-module"><i class="fa-solid fa-bolt"></i><h4>${t('no_skills')}</h4><p>Skills learned in the story will be registered here.</p></section>`;
     return `<section class="sl-module-heading"><div><span class="sl-system-eyebrow">${t('ability_registry')}</span><h3>${t('tab_skills')}</h3></div><strong>${state.skills.length} ${t('acquired')}</strong></section>${pendingActivation.length ? `<button type="button" class="sl-activation-alert" data-sl-skill="${html(pendingActivation[0].id)}"><i class="fa-solid fa-microphone-lines"></i><span><b>${t('voice_required')}</b><small>Set one or more phrases for ${html(pendingActivation[0].name)}${pendingActivation.length > 1 ? ` and ${pendingActivation.length - 1} more` : ''}.</small></span><i class="fa-solid fa-chevron-right"></i></button>` : ''}${skills}`;
 }
 
 function summonUnitCard(unit) {
     const deployed = unit.status === 'Deployed';
     const hpProgress = percent(unit.hp, unit.maxHp); const mpProgress = percent(unit.mp, unit.maxMp);
-    return `<article class="sl-summon-card" data-status="${html(unit.status.toLowerCase())}"><button type="button" class="sl-summon-portrait-button" data-sl-summon-image="${html(unit.id)}" aria-label="Edit ${html(unit.name)} portrait">${summonPortrait(unit)}<em>${html(unit.rank)}</em><span><i class="fa-solid fa-camera"></i></span></button><button type="button" class="sl-summon-card-main" data-sl-shadow="${html(unit.id)}"><span class="sl-summon-identity"><small>${html(unit.kind)} / ${html(unit.species || unit.race || unit.class)}</small><b>${html(unit.name)}</b><em>LEVEL ${unit.level} · ${html(unit.class)} · ${html(unit.status)}</em></span><span class="sl-summon-card-vitals"><span class="is-hp" style="--unit-progress:${hpProgress}%"><small>HP</small><i><b></b></i><em>${unit.hp}/${unit.maxHp}</em></span><span class="is-mp" style="--unit-progress:${mpProgress}%"><small>MP</small><i><b></b></i><em>${unit.mp}/${unit.maxMp}</em></span></span><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="sl-summon-quick" data-sl-summon-action="${deployed ? 'store' : 'deploy'}" data-summon-id="${html(unit.id)}"><i class="fa-solid ${deployed ? 'fa-arrow-rotate-left' : 'fa-burst'}"></i>${deployed ? t('recall') : t('deploy')}</button></article>`;
+    const rankCode = text(unit.rank, '?', 20).toLocaleUpperCase();
+    return `<article class="sl-summon-card" data-status="${html(unit.status.toLowerCase())}"><button type="button" class="sl-summon-portrait-button" data-sl-summon-image="${html(unit.id)}" aria-label="Edit ${html(unit.name)} portrait">${summonPortrait(unit)}<em>${html(rankCode.length <= 2 ? rankCode : rankCode.charAt(0))}</em><span class="sl-summon-edit-mark"><i class="fa-solid fa-camera"></i></span></button><button type="button" class="sl-summon-card-main" data-sl-shadow="${html(unit.id)}"><span class="sl-summon-identity"><small>${html(unit.kind)} / ${html(unit.species || unit.race || unit.class)}</small><b>${html(unit.name)}</b><em>LEVEL ${unit.level} · ${html(unit.class)} · ${html(unit.status)}</em></span><span class="sl-summon-card-vitals"><span class="is-hp" style="--unit-progress:${hpProgress}%"><small>HP</small><i><b></b></i><em>${unit.hp}/${unit.maxHp}</em></span><span class="is-mp" style="--unit-progress:${mpProgress}%"><small>MP</small><i><b></b></i><em>${unit.mp}/${unit.maxMp}</em></span></span><i class="fa-solid fa-chevron-right"></i></button><button type="button" class="sl-summon-quick" data-sl-summon-action="${deployed ? 'store' : 'deploy'}" data-summon-id="${html(unit.id)}"><i class="fa-solid ${deployed ? 'fa-arrow-rotate-left' : 'fa-burst'}"></i>${deployed ? t('recall') : t('deploy')}</button></article>`;
 }
 
 function renderSummons() {
@@ -1195,9 +1230,11 @@ async function claimQuestRewards(questId, rewardId = selectedQuestRewardId) {
 function showSkillModal(skillId) {
     const skill = getState().skills.find(entry => entry.id === skillId); if (!skill) return;
     selectedSkillId = skill.id; const modal = document.getElementById('sl-item-modal'); if (!modal) return;
-    const cooldown = Math.max(0, Math.ceil((timestamp(skill.buff?.cooldownUntil) - Date.now()) / 1000));
+    const buffSkill = isBuffSkill(skill); const mastered = isSkillMastered(skill);
+    const cooldown = buffSkill && !mastered ? Math.max(0, Math.ceil((timestamp(skill.buff?.cooldownUntil) - Date.now()) / 1000)) : 0;
     const masteryProgress = percent(skill.mastery, skill.masteryRequired);
-    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-skill-sheet"><header><span>SKILL DOSSIER / ${html(skill.id)}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-item-sheet-hero">${imageFrame(skill.icon, 'Skill', 'is-large')}<div><span>${html(skill.type)} · ${html(skill.rank)}-RANK</span><h3>${html(skill.name)}</h3><p>${skill.buff?.enabled ? 'ACTIVE EFFECT' : cooldown ? 'COOLDOWN' : 'AVAILABLE'} · REGISTERED ABILITY</p></div></div><dl class="sl-information-grid">${informationField('Skill level', skill.level)}${informationField('Rank', skill.rank)}${informationField('Classification', skill.type)}${informationField('Confirmed uses', skill.uses)}${informationField('Voice phrases', skill.activationRequired ? skill.activationWords.length : 'Not required')}${informationField('Cooldown', cooldown ? `${cooldown}s remaining` : 'Ready')}</dl><section><h4>ABILITY DESCRIPTION</h4><p>${html(skill.description)}</p></section><section><h4>MASTERY PROGRESSION</h4><div class="sl-skill-sheet-mastery" style="--mastery:${masteryProgress}%"><div class="sl-quest-progress" role="meter" aria-label="Mastery" aria-valuemin="0" aria-valuemax="${skill.masteryRequired}" aria-valuenow="${skill.mastery}"><i style="width:${masteryProgress}%"></i></div><b>${skill.mastery} / ${skill.masteryRequired}</b><small>${masteryProgress}% COMPLETE</small></div></section>${skill.activationRequired ? `<section><h4>VOICE COMMAND REGISTRY</h4><form id="sl-activation-form" class="sl-activation-form"><label><span>ACTIVATION PHRASES</span><textarea id="sl-activation-words" maxlength="800" rows="3" placeholder="Arise, Rise, Answer my call">${html(skill.activationWords.join(', '))}</textarea></label><button type="submit">SAVE COMMANDS</button></form><p class="sl-muted-copy">Register up to ten comma- or line-separated phrases. Each phrase belongs only to this skill and chat.</p></section>` : ''}${skill.buffing ? `<section class="sl-aura-editor"><h4>INTERFACE AURA CONFIGURATION</h4><form id="sl-aura-form"><div class="sl-aura-colors"><label class="sl-aura-color-well"><input id="sl-aura-color" type="color" value="${html(skill.buff.auraColor)}" aria-label="Aura color"><span><b>Aura</b><small>${html(skill.buff.auraColor.toUpperCase())}</small></span></label><label class="sl-aura-color-well"><input id="sl-aura-background" type="color" value="${html(skill.buff.backgroundColor)}" aria-label="Surface color"><span><b>Surface</b><small>${html(skill.buff.backgroundColor.toUpperCase())}</small></span></label><label class="sl-aura-color-well"><input id="sl-aura-particle" type="color" value="${html(skill.buff.particleColor)}" aria-label="Particle color"><span><b>Particles</b><small>${html(skill.buff.particleColor.toUpperCase())}</small></span></label></div><div class="sl-aura-numbers"><label><span>Duration (seconds)</span><input id="sl-aura-duration" type="number" min="5" max="86400" value="${skill.buff.durationSeconds}"></label><label><span>Cooldown (seconds)</span><input id="sl-aura-cooldown" type="number" min="0" max="604800" value="${skill.buff.cooldownSeconds}"></label><label><span>MP per reply</span><input id="sl-aura-drain" type="number" min="0" max="999999" value="${skill.buff.mpDrain}"></label></div><button type="submit">SAVE AURA CONFIGURATION</button></form>${skill.buff.enabled ? `<button type="button" class="sl-aura-disable" data-sl-action="disable-aura"><i class="fa-solid fa-power-off"></i> DISABLE ACTIVE AURA</button>` : '<p class="sl-muted-copy">The aura activates after the story confirms this skill was used.</p>'}</section>` : ''}<footer><button type="button" data-sl-action="edit-selected-skill-image"><i class="fa-solid fa-image"></i> EDIT ICON</button><button type="button" data-sl-action="close-modal">CLOSE</button></footer></article>`;
+    const auraSection = buffSkill ? `<section class="sl-aura-editor${mastered ? ' is-mastered' : ''}"><h4>BUFF AURA CONFIGURATION</h4><div class="sl-aura-rule"><i class="fa-solid ${mastered ? 'fa-infinity' : 'fa-droplet'}"></i><span><b>${mastered ? 'MASTERED · ZERO MP COST' : `${skill.buff.mpDrain} MP PER ASSISTANT REPLY`}</b><small>${mastered ? 'This Buff can be switched on or off freely with no drain or cooldown.' : 'The Buff remains active and drains MP after every assistant reply until disabled or MP reaches zero.'}</small></span></div><form id="sl-aura-form"><div class="sl-aura-colors"><label class="sl-aura-color-well"><input id="sl-aura-color" type="color" value="${html(skill.buff.auraColor)}" aria-label="Aura color"><span><b>Mana</b><small>${html(skill.buff.auraColor.toUpperCase())}</small></span></label><label class="sl-aura-color-well"><input id="sl-aura-background" type="color" value="${html(skill.buff.backgroundColor)}" aria-label="Surface color"><span><b>System</b><small>${html(skill.buff.backgroundColor.toUpperCase())}</small></span></label><label class="sl-aura-color-well"><input id="sl-aura-particle" type="color" value="${html(skill.buff.particleColor)}" aria-label="Particle color"><span><b>Particles</b><small>${html(skill.buff.particleColor.toUpperCase())}</small></span></label></div>${mastered ? '' : `<div class="sl-aura-numbers"><label><span>MP per reply</span><input id="sl-aura-drain" type="number" min="1" max="999999" value="${skill.buff.mpDrain}"></label><label><span>Cooldown after ending</span><input id="sl-aura-cooldown" type="number" min="0" max="604800" value="${skill.buff.cooldownSeconds}"></label></div>`}<button type="submit">SAVE BUFF CONFIGURATION</button></form>${mastered ? `<button type="button" class="sl-aura-toggle${skill.buff.enabled ? ' is-active' : ''}" data-sl-action="toggle-mastered-aura"><i class="fa-solid fa-power-off"></i> ${skill.buff.enabled ? 'TURN BUFF OFF' : 'TURN BUFF ON'}</button>` : skill.buff.enabled ? `<button type="button" class="sl-aura-disable" data-sl-action="disable-aura"><i class="fa-solid fa-power-off"></i> DISABLE ACTIVE BUFF</button>` : `<p class="sl-muted-copy">Use the Buff in the role-play to activate it. Ordinary Active, Passive, Utility, and Summoning skills cannot recolor the interface.</p>`}</section>` : '';
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-skill-sheet"><header><span>SKILL DOSSIER / ${html(skill.id)}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-item-sheet-hero">${imageFrame(skill.icon, 'Skill', 'is-large')}<div><span>${html(skill.type)} · ${html(skill.rank)}-RANK</span><h3>${html(skill.name)}</h3><p>${buffSkill && skill.buff?.enabled ? 'ACTIVE BUFF' : cooldown ? 'COOLDOWN' : mastered ? 'MASTERED ABILITY' : 'AVAILABLE'} · REGISTERED ABILITY</p></div></div><dl class="sl-information-grid">${informationField('Skill level', skill.level)}${informationField('Rank', skill.rank)}${informationField('Category', skill.type)}${informationField('Confirmed uses', skill.uses)}${informationField('Mastery', mastered ? 'Mastered' : `${skill.mastery}/${skill.masteryRequired}`)}${informationField(buffSkill ? 'Buff cost' : 'Aura access', buffSkill ? mastered ? 'Free' : `${skill.buff.mpDrain} MP / reply` : 'Not applicable')}</dl><section><h4>ABILITY DESCRIPTION</h4><p>${html(skill.description)}</p></section><section><h4>MASTERY PROGRESSION</h4><div class="sl-skill-sheet-mastery${mastered ? ' is-mastered' : ''}" style="--mastery:${masteryProgress}%"><div class="sl-quest-progress" role="meter" aria-label="Mastery" aria-valuemin="0" aria-valuemax="${skill.masteryRequired}" aria-valuenow="${skill.mastery}"><i style="width:${masteryProgress}%"></i></div><b>${mastered ? 'MASTERED' : `${skill.mastery} / ${skill.masteryRequired}`}</b><small>${mastered ? 'MAXIMUM PROFICIENCY · MASTERY BENEFIT ACTIVE' : `${masteryProgress}% COMPLETE`}</small></div></section>${skill.activationRequired ? `<section><h4>VOICE COMMAND REGISTRY</h4><form id="sl-activation-form" class="sl-activation-form"><label><span>ACTIVATION PHRASES</span><textarea id="sl-activation-words" maxlength="800" rows="3" placeholder="Arise, Rise, Answer my call">${html(skill.activationWords.join(', '))}</textarea></label><button type="submit">SAVE COMMANDS</button></form><p class="sl-muted-copy">Register up to ten comma- or line-separated phrases. Each phrase belongs only to this skill and chat.</p></section>` : ''}${auraSection}<footer><button type="button" data-sl-action="edit-selected-skill-image"><i class="fa-solid fa-image"></i> EDIT ICON</button><button type="button" data-sl-action="close-modal">CLOSE</button></footer></article>`;
     modal.hidden = false;
 }
 
@@ -1210,16 +1247,24 @@ async function saveActivationWords() {
 }
 
 async function saveAuraSettings() {
-    const state = getState(); const skill = state.skills.find(entry => entry.id === selectedSkillId); if (!skill?.buffing) return;
+    const state = getState(); const skill = state.skills.find(entry => entry.id === selectedSkillId); if (!isBuffSkill(skill)) return;
     skill.buff.auraColor = hexColor(document.getElementById('sl-aura-color')?.value, skill.buff.auraColor); skill.buff.backgroundColor = hexColor(document.getElementById('sl-aura-background')?.value, skill.buff.backgroundColor); skill.buff.particleColor = hexColor(document.getElementById('sl-aura-particle')?.value, skill.buff.particleColor);
-    skill.buff.durationSeconds = number(document.getElementById('sl-aura-duration')?.value, skill.buff.durationSeconds, 5, 86400); skill.buff.cooldownSeconds = number(document.getElementById('sl-aura-cooldown')?.value, skill.buff.cooldownSeconds, 0, 604800); skill.buff.mpDrain = number(document.getElementById('sl-aura-drain')?.value, skill.buff.mpDrain, 0, 999999);
+    skill.buff.cooldownSeconds = number(document.getElementById('sl-aura-cooldown')?.value, skill.buff.cooldownSeconds, 0, 604800); skill.buff.mpDrain = number(document.getElementById('sl-aura-drain')?.value, skill.buff.mpDrain, 1, 999999);
     await persistState(state, 'ui-skill-aura-settings', { detect: false }); showSkillModal(skill.id); systemNotice('skill', 'AURA CONFIGURATION SAVED', skill.name, { tab: 'skills', skillId: skill.id });
 }
 
 async function disableAura() {
-    const state = getState(); const skill = state.skills.find(entry => entry.id === selectedSkillId); if (!skill?.buff?.enabled) return;
-    skill.buff.enabled = false; skill.buff.expiresAt = ''; skill.buff.cooldownUntil = new Date(Date.now() + skill.buff.cooldownSeconds * 1000).toISOString(); queueAction(state, 'disable-skill-aura', `Disabled ${skill.name}`, { skillId: skill.id });
+    const state = getState(); const skill = state.skills.find(entry => entry.id === selectedSkillId); if (!isBuffSkill(skill) || !skill.buff?.enabled) return;
+    skill.buff.enabled = false; skill.buff.expiresAt = ''; skill.buff.cooldownUntil = isSkillMastered(skill) ? '' : new Date(Date.now() + skill.buff.cooldownSeconds * 1000).toISOString(); queueAction(state, 'disable-skill-aura', `Disabled ${skill.name}`, { skillId: skill.id });
     await persistState(state, 'ui-skill-aura-disable'); closeSubmodals(); systemNotice('skill', 'SKILL EFFECT DISABLED', skill.name, { tab: 'skills', skillId: skill.id });
+}
+
+async function toggleMasteredAura() {
+    const state = getState(); const skill = state.skills.find(entry => entry.id === selectedSkillId);
+    if (!isBuffSkill(skill) || !isSkillMastered(skill)) return;
+    skill.buff.enabled = !skill.buff.enabled; skill.buff.expiresAt = ''; skill.buff.cooldownUntil = '';
+    queueAction(state, 'toggle-mastered-buff', `${skill.buff.enabled ? 'Enabled' : 'Disabled'} mastered Buff ${skill.name}`, { skillId: skill.id, enabled: skill.buff.enabled });
+    await persistState(state, 'ui-mastered-buff-toggle', { detect: false }); showSkillModal(skill.id); systemNotice('skill', skill.buff.enabled ? 'MASTERED BUFF ENABLED' : 'MASTERED BUFF DISABLED', `${skill.name} · No MP cost`, { tab: 'skills', skillId: skill.id });
 }
 
 function showShadowModal(shadowId) {
@@ -1263,7 +1308,7 @@ function openGuide() {
         ['fa-link', 'Per-chat records', 'Accept or decline separately in every chat. The profile, scene, progress, items, equipment, quests, shop, credits, and actions never transfer to another chat.'],
         ['fa-arrow-trend-up', 'EXP and levels', 'EXP is awarded only when the story confirms meaningful combat, training, quest progress, or another achievement. The AI updates EXP after its reply; Sync Latest Turn can re-check the newest turn.'],
         ['fa-chart-simple', 'Stats and stat points', 'Level-ups and appropriate rewards can grant stat points. Spend them with the + buttons in Status. A queued action tells the next reply what you changed without adding it twice.'],
-        ['fa-heart-pulse', 'HP, MP, skills, and titles', 'Skills track level and mastery, support custom icons and multiple voice phrases, and can apply timed interface auras with MP drain and cooldown.'],
+        ['fa-heart-pulse', 'HP, MP, skills, and titles', 'Skills use strict Active, Passive, Buff, Summoning, and Utility categories. Only Buff skills recolor the interface; they drain MP per reply until mastered.'],
         ['fa-users-rays', 'Summons and shadows', 'A Summons tab appears only when a summoning skill is owned. Capacity grows with skill level; deploy, recall, inspect, or permanently dismiss each registered soul.'],
         ['fa-scroll', 'Missions, progress, and rewards', 'Tap a mission for its full objective list. Progress is tracked per objective, and completed mission rewards are claimed from the mission interface.'],
         ['fa-box-open', 'Inventory and equipment', 'Tap any item for full information. Consumables can be used, gear can be equipped, and owned item images can be customized. Mobile Equipment is displayed as a vertical slot list.'],
@@ -1328,7 +1373,7 @@ function handleInterfaceClick(event) {
         const id = selectedShadowId; closeSubmodals(); openImageEditor(`summon:${id}`); return;
     }
     const action = event.target.closest('[data-sl-action]')?.dataset.slAction; const summonButton = event.target.closest('[data-sl-summon-action]'); const summonAction = summonButton?.dataset.slSummonAction; const summonId = summonButton?.dataset.summonId; const tab = event.target.closest('[data-sl-tab]')?.dataset.slTab; const item = event.target.closest('[data-sl-item]')?.dataset.slItem; const quest = event.target.closest('[data-sl-quest]')?.dataset.slQuest; const rewardOption = event.target.closest('[data-sl-reward-option]')?.dataset.slRewardOption; const skill = event.target.closest('[data-sl-skill]')?.dataset.slSkill; const skillImage = event.target.closest('[data-sl-skill-image]')?.dataset.slSkillImage; const shadow = event.target.closest('[data-sl-shadow]')?.dataset.slShadow; const preset = event.target.closest('[data-sl-preset]')?.dataset.slPreset; const upgrade = event.target.closest('[data-sl-upgrade]')?.dataset.slUpgrade; const buy = event.target.closest('[data-sl-buy]')?.dataset.slBuy; const unequip = event.target.closest('[data-sl-unequip]')?.dataset.slUnequip; const pager = event.target.closest('[data-sl-page]');
-    if (summonAction && summonId) manageSummon(summonId, summonAction); else if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'disable-aura') disableAura(); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
+    if (summonAction && summonId) manageSummon(summonId, summonAction); else if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'disable-aura') disableAura(); else if (action === 'toggle-mastered-aura') toggleMasteredAura(); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
 }
 
 function handleInterfaceSubmit(event) {

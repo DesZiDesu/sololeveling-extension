@@ -153,7 +153,7 @@
 .sl-skill-card.is-aura-active { border-color: var(--sl-line-strong); box-shadow: inset 2px 0 var(--sl-system-accent); }
 .sl-skill-icon-button { position: relative; display: grid; place-items: center; border: 0; border-right: 1px solid var(--sl-line); background: linear-gradient(160deg, rgba(var(--sl-system-accent-rgb),.1), transparent); cursor: pointer; }
 .sl-skill-icon-button .sl-image-frame { width: 70px; height: 70px; }
-.sl-skill-icon-button > span { position: absolute; right: 8px; bottom: 8px; color: var(--sl-ink-muted); font-size: 8px; }
+.sl-skill-icon-button > .sl-skill-edit-mark { position: absolute; right: 8px; bottom: 8px; color: var(--sl-ink-muted); font-size: 8px; }
 .sl-skill-copy { min-width: 0; padding: 17px; border: 0; background: transparent; color: var(--sl-ink); text-align: left; cursor: pointer; }
 .sl-skill-kicker { color: var(--sl-system-accent); font-size: 8px; font-weight: 800; letter-spacing: .1em; }
 .sl-skill-copy h4 { margin: 7px 0 6px; font-family: var(--sl-serif); font-size: 24px; font-weight: 500; }

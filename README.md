@@ -4,7 +4,12 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.2.1 anchors pending actions in the empty top-left header area as an opaque, high-contrast status badge, keeping queued actions readable above the animated background on mobile and PC. It builds on the configurable holographic void shell introduced in v1.2.0.
+Version 1.3.0 completes the skill and summon presentation pass with true square portrait controls, reliable uploaded-image cropping, strict skill categories, and mastery-dependent Buff mechanics.
+
+- Skill and summon portrait controls are now true 1:1 frames. Uploaded images fill the square with saved position and zoom; summons without an upload use a clear species/race/name initial plus a compact rank code.
+- Existing chats automatically discard stale aura flags from ordinary skills. Only the explicit **Buff** category can recolor mana, particles, or the System interface.
+- An active, unmastered Buff drains its configured MP once per assistant reply until disabled or MP reaches zero. At full mastery, the Buff has no MP cost or cooldown and gains a permanent UI on/off toggle.
+- Active, Passive, Buff, Summoning, and Utility are normalized as distinct skill categories. Skill level remains separate from mastery, while summoning-skill levels continue to expand unit storage.
 
 - Background style can be Animated Void, Static Dark, or Transparent Glass. Interface, background, and particle colors remain independently configurable.
 - The side launcher is rebuilt as a compact angular holographic access rail with energy traces instead of the previous half-circle/orbit panel.
@@ -16,7 +21,7 @@ Version 1.2.1 anchors pending actions in the empty top-left header area as an op
 - Summon records expose HP and MP directly in the registry. Every unit now has its own user-selectable portrait; the fallback seal uses the first letter of species, race, or name plus the unit rank.
 - Equipment is now an informative loadout ledger with slot state, item mechanic, active effects, and summarized attribute bonuses instead of a decorative character silhouette.
 - Item and skill sheets use structured metadata and mechanical-effect grids. Skill aura colors use compact circular wells rather than pill-shaped controls.
-- Pure summoning skills no longer receive interface-aura controls. Only real buff, enhancement, aura, and domain skills can temporarily recolor the interface.
+- Pure summoning, domain, enhancement, Active, Passive, and Utility skills do not receive interface-aura controls; the skill category must explicitly be **Buff**.
 - The response channel, milestone alert, and optional side launcher share the same restrained bronze-black visual language. Opening the launcher still darkens and softly blurs chat behind animated scan lines and orbital elements.
 - The stylesheet is separated into foundation, interface, notification, and responsive layers so future visual updates stay coherent.
 
@@ -39,7 +44,7 @@ Version 1.2.1 anchors pending actions in the empty top-left header area as an op
 - Tap-to-open missions with per-objective progress, deadlines, penalties, structured AI-generated rewards, and one-time reward claiming.
 - Skills with rank, level, mastery, usage tracking, customizable icons, and up to ten saved voice activation phrases per skill.
 - Shadow Extraction and generic summoning support with level-scaled storage capacity, deployed/stored management, detailed responsive unit records, and a two-step permanent soul dismissal flow.
-- Configurable buff-skill interface auras that temporarily recolor the System, consume MP, expire into cooldown, and can be manually disabled.
+- Configurable Buff interface auras that recolor the System, drain MP once per assistant reply while unmastered, and become free permanent toggles at mastery.
 - System Credits for purchases, rewards, and penalties.
 - Administrator Mode with direct profile, progression, attribute, currency, and position controls—no JSON editing required.
 - Direct image manipulation with one-finger/mouse dragging and two-finger pinch zoom.
@@ -52,7 +57,7 @@ Version 1.2.1 anchors pending actions in the empty top-left header area as an op
 
 ## Live preview
 
-Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.2.1 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.3.0 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
 
 ## Installation
 
@@ -62,4 +67,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.2.1.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.3.0.

@@ -511,13 +511,64 @@
 .sl-objective-list { gap: 4px; margin-top: 8px; }
 
 .sl-skill-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
-.sl-skill-card { grid-template-columns: 64px minmax(0,1fr); min-height: 108px; }
-.sl-skill-icon-button { min-width: 64px; border-color: var(--sl-line); }
-.sl-skill-icon-button .sl-image-frame { width: 42px; height: 42px; clip-path: none; }
+.sl-skill-card { grid-template-columns: 76px minmax(0,1fr); min-height: 108px; }
+.sl-skill-icon-button {
+    align-self: start;
+    width: 56px;
+    height: 56px;
+    min-width: 0;
+    aspect-ratio: 1;
+    margin: 10px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--sl-line-strong);
+    background: rgba(var(--sl-system-accent-rgb),.055);
+}
+.sl-skill-icon-button .sl-image-frame { width: 100%; height: 100%; aspect-ratio: 1; border: 0; clip-path: none; }
+.sl-skill-icon-button .sl-image-frame.has-image > i,
+.sl-summon-portrait-button .sl-image-frame.has-image > i {
+    background-size: cover;
+    transform: scale(var(--zoom));
+    transform-origin: var(--x) var(--y);
+}
+.sl-skill-icon-button > .sl-skill-edit-mark { right: 3px; bottom: 3px; padding: 3px; background: rgba(2,4,12,.82); }
+.sl-skill-card.is-mastered { box-shadow: inset 2px 0 rgba(213,167,92,.72); }
 .sl-skill-copy { padding: 10px; }
 .sl-skill-copy h4 { margin: 4px 0; font-family: var(--sl-serif); font-size: 15px; }
 .sl-skill-copy p { font-size: 8px; line-height: 1.45; }
 .sl-mastery-line { margin-top: 8px; }
+.sl-buff-state.is-mastered { color: var(--sl-warning); border-color: rgba(213,167,92,.34); }
+.sl-skill-sheet-mastery.is-mastered .sl-quest-progress i { background: var(--sl-warning); box-shadow: 0 0 12px rgba(213,167,92,.28); }
+.sl-skill-sheet-mastery.is-mastered > b { color: var(--sl-warning); letter-spacing: .1em; }
+.sl-aura-rule {
+    display: grid;
+    grid-template-columns: 38px minmax(0,1fr);
+    align-items: center;
+    gap: 11px;
+    margin-bottom: 12px;
+    padding: 10px;
+    border: 1px solid var(--sl-line);
+    border-left: 2px solid var(--sl-system-accent);
+    background: rgba(var(--sl-system-accent-rgb),.045);
+}
+.sl-aura-rule > i { display: grid; width: 34px; height: 34px; place-items: center; color: var(--sl-system-accent); }
+.sl-aura-rule > span { display: grid; gap: 4px; }
+.sl-aura-rule b { font-size: 9px; letter-spacing: .08em; }
+.sl-aura-rule small { color: var(--sl-ink-muted); font-size: 8px; line-height: 1.45; }
+.sl-aura-editor.is-mastered .sl-aura-rule { border-left-color: var(--sl-warning); background: rgba(213,167,92,.045); }
+.sl-aura-editor.is-mastered .sl-aura-rule > i { color: var(--sl-warning); }
+.sl-aura-toggle {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 10px;
+    border: 1px solid rgba(213,167,92,.38);
+    background: rgba(213,167,92,.07);
+    color: var(--sl-warning);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .09em;
+}
+.sl-aura-toggle.is-active { background: rgba(var(--sl-system-accent-rgb),.12); color: var(--sl-ink); }
 
 .sl-summon-overview {
     grid-template-columns: 160px 1fr 210px;
@@ -532,7 +583,7 @@
 .sl-summon-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .sl-summon-card {
     display: grid;
-    grid-template-columns: 72px minmax(0,1fr) 62px;
+    grid-template-columns: 84px minmax(0,1fr) 62px;
     min-height: 118px;
     overflow: hidden;
 }
@@ -540,31 +591,49 @@
 .sl-summon-portrait-button {
     position: relative;
     display: grid;
+    align-self: start;
     place-items: center;
+    width: 64px;
+    height: 64px;
     min-width: 0;
-    padding: 8px;
-    border: 0;
-    border-right: 1px solid var(--sl-line);
-    background: radial-gradient(circle,rgba(var(--sl-system-accent-rgb),.09),transparent 72%);
+    aspect-ratio: 1;
+    margin: 10px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(var(--sl-system-accent-rgb),.5);
+    background: rgba(var(--sl-system-accent-rgb),.065);
     color: var(--sl-ink-soft);
     cursor: pointer;
 }
 
 .sl-summon-portrait-button .sl-image-frame {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 0;
     clip-path: none;
-    border-color: rgba(var(--sl-system-accent-rgb),.62);
-    background: radial-gradient(circle,rgba(var(--sl-system-accent-rgb),.19),rgba(4,3,2,.96) 68%);
+    background: radial-gradient(circle,rgba(var(--sl-system-accent-rgb),.18),rgba(4,6,16,.98) 74%);
 }
+.sl-summon-frame > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: var(--x) var(--y);
+    transform: scale(var(--zoom));
+    transform-origin: var(--x) var(--y);
+}
+.sl-summon-frame > .sl-summon-letter { position: absolute; inset: 0; display: grid; place-items: center; }
 
 .sl-summon-portrait-button > em {
     position: absolute;
-    right: 5px;
-    bottom: 6px;
-    min-width: 22px;
-    padding: 2px 4px;
+    right: 3px;
+    bottom: 3px;
+    z-index: 3;
+    min-width: 18px;
+    padding: 3px;
     border: 1px solid var(--sl-line-strong);
     background: #0a0704;
     color: var(--sl-system-accent);
@@ -572,23 +641,26 @@
     font-style: normal;
 }
 
-.sl-summon-portrait-button > span {
+.sl-summon-portrait-button > .sl-summon-edit-mark {
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: 3px;
+    right: 3px;
+    z-index: 3;
+    padding: 3px;
+    background: rgba(2,4,12,.8);
     opacity: 0;
     font-size: 7px;
     transition: opacity .18s ease, transform .18s ease;
 }
 
-.sl-summon-portrait-button:hover > span,
-.sl-summon-portrait-button:focus-visible > span { opacity: 1; transform: scale(1.12); }
+.sl-summon-portrait-button:hover > .sl-summon-edit-mark,
+.sl-summon-portrait-button:focus-visible > .sl-summon-edit-mark { opacity: 1; transform: scale(1.12); }
 .sl-summon-letter {
     position: relative;
     z-index: 1;
     color: #e2c77e;
     font-family: var(--sl-serif);
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 600;
     text-shadow: 0 1px 5px rgba(var(--sl-system-accent-rgb),.35);
 }
@@ -863,11 +935,11 @@
     .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-grid,
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-grid { grid-template-columns: 1fr; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-card {
-        grid-template-columns: 52px minmax(0,1fr);
+        grid-template-columns: 70px minmax(0,1fr);
         min-height: 92px;
     }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button { min-width: 52px; padding: 6px; }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button .sl-image-frame { width: 34px; height: 34px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button { width: 52px; height: 52px; min-width: 0; margin: 9px; padding: 0; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button .sl-image-frame { width: 100%; height: 100%; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-copy { min-width: 0; padding: 8px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-kicker { font-size: 6px; letter-spacing: .11em; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-copy h4 { margin: 3px 0; font-size: 14px; line-height: 1.12; }
@@ -890,9 +962,10 @@
         border-top: 1px solid var(--sl-line);
     }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-card {
-        grid-template-columns: 66px minmax(0,1fr);
+        grid-template-columns: 74px minmax(0,1fr);
         grid-template-rows: auto 38px;
     }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-portrait-button { width: 56px; height: 56px; margin: 9px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-card-main {
         grid-template-columns: 1fr 10px;
         min-height: 116px;
@@ -937,9 +1010,11 @@
     .sl-system-overlay:not([data-layout="desktop"]) .sl-player-identity p { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-identity-tags span:nth-child(3) { display: none; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-attribute-copy small { display: none; }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-card { grid-template-columns: 46px minmax(0,1fr); }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button { min-width: 46px; padding: 5px; }
-    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button .sl-image-frame { width: 30px; height: 30px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-card { grid-template-columns: 64px minmax(0,1fr); }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button { width: 48px; height: 48px; min-width: 0; margin: 8px; padding: 0; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-skill-icon-button .sl-image-frame { width: 100%; height: 100%; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-card { grid-template-columns: 68px minmax(0,1fr); }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-portrait-button { width: 52px; height: 52px; margin: 8px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-quest-card { grid-template-columns: 64px 1fr; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-summon-overview-copy p { display: none; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-shop-grid { grid-template-columns: 1fr; }
