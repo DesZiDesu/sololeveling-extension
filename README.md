@@ -1,10 +1,23 @@
 # The System
 
-The System is a Solo Leveling-inspired SillyTavern extension shell for a persistent role-play interface.
+The System is a persistent role-play interface for SillyTavern. It retains its Solo Leveling-inspired System modules while supporting modern, fantasy, supernatural, and other settings.
 
 ## Current build
 
-Version 0.7.3 anchors the half-circle launcher to the true vertical center of either screen edge, with a Left/Right setting. It also adds automatic multi-level EXP rollover with excess EXP carryover and stat-point awards, plus redesigned HP, MP, EXP, and attribute modules.
+Version 0.8.0 adds an optional smartphone and local music library to the centered side launcher, along with a broader first-run welcome sequence. The side launcher can now be placed on either edge or disabled entirely.
+
+- Smartphone home screen with Contacts, Messages, Phone, Music, Stickers, and Settings apps.
+- Manual and AI-managed NPC contacts with names, nicknames, phone numbers, notes, blocking, deletion, calling, and messaging.
+- One-to-one and group conversations with pinning, archiving, restoration, unread counts, queued messages, and conversation history.
+- Enter queues phone messages without generating; the next normal role-play reply can answer them in the same update. An explicit Generate button is available when an immediate extra model call is desired.
+- Batched in-world calls with dialing, answered/declined/missed results, transcript logs, and cosmetic mute/speaker controls.
+- Incoming NPC calls and messages respect per-phone permission settings and blocked contacts.
+- Multiple phone shells and Dynamic Island styles, plus a separate phone profile, number, photo, and wallpaper.
+- Original sticker upload and sending flow. No code or assets are copied from another phone extension.
+- Browser-local music player supporting global or per-chat audio libraries, with upload controls in both the phone and extension drawer.
+- Two-button animated edge tray for opening The System or the smartphone. The edge, visibility, and wand-menu launcher are independently configurable.
+- A multi-message, genre-neutral welcome sequence replaces the previous single threatening onboarding message.
+- Phone contacts, messages, calls, and pending batches are included in the normal one-pass UI state check so ordinary role-play replies can update them without a second sync request.
 
 - Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
 - Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation.
@@ -12,7 +25,7 @@ Version 0.7.3 anchors the half-circle launcher to the true vertical center of ei
 - Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
 - AI-powered shop refill and item search with support for current and legacy SillyTavern quiet-generation signatures and tolerant JSON parsing.
 - A temporary sharp rectangular Dynamic Island with compact/full display modes while the AI is responding or a System operation is running; it clears automatically afterward so SillyTavern’s top controls remain accessible.
-- A collapsed half-circle launcher centered on the selected Left or Right screen edge, with inward-swipe and tap/click controls, an animated one-button tray, and immediate access to the full System interface on mobile and PC.
+- A collapsed half-circle launcher centered on the selected Left or Right screen edge, with inward-swipe and tap/click controls and immediate access to the System and phone on mobile and PC.
 - Automatic EXP rollover raises the Player level at the threshold, carries excess EXP into the next level, scales the next requirement, and grants three stat points per level.
 - Redesigned segmented HP/MP monitors, progression route, and responsive attribute matrix.
 - A separate draggable milestone alert window over the main chat, with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal; both notification layers hide while the full System panel is open.
@@ -41,4 +54,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v0.8.0.

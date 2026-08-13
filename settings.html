@@ -1,7 +1,7 @@
 <div id="sl-system-settings" class="sl-system-settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header interactable" tabindex="0" role="button" aria-expanded="false">
-            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.7.3</span></b>
+            <b><span class="sl-system-settings-mark">SYS</span> The System <span id="sl-system-current-version" class="sl-system-version">v0.8.0</span></b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down" aria-hidden="true"></div>
         </div>
         <div class="inline-drawer-content">
@@ -13,6 +13,10 @@
             <label class="checkbox_label" for="sl-system-show-launcher">
                 <input id="sl-system-show-launcher" type="checkbox" />
                 <span>Show <em>The System</em> in the wand menu</span>
+            </label>
+            <label class="checkbox_label" for="sl-system-sidebar-enabled">
+                <input id="sl-system-sidebar-enabled" type="checkbox" />
+                <span>Show the side launcher in chat</span>
             </label>
             <label class="checkbox_label" for="sl-system-auto-track">
                 <input id="sl-system-auto-track" type="checkbox" />
@@ -42,8 +46,17 @@
             </div>
 
             <div class="sl-system-settings-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>The System uses SillyTavern’s active provider/model. Profile, scene, missions, skills, activation words, currency, and images are saved only in the active chat metadata.</span></div>
+            <div class="sl-system-drawer-media">
+                <label for="sl-system-music-file"><i class="fa-solid fa-music"></i> Add music to the phone</label>
+                <input id="sl-system-music-file" type="file" accept="audio/*" />
+                <select id="sl-system-music-scope"><option value="chat">This chat only</option><option value="global">Global library</option></select>
+                <button id="sl-system-add-music" class="menu_button" type="button">Add track</button>
+            </div>
             <div class="sl-system-settings-actions">
                 <button id="sl-system-open-from-settings" class="menu_button" type="button" data-sl-open-system="true"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Open The System</button>
+                <button id="sl-system-open-phone-settings" class="menu_button" type="button"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Phone settings</button>
+                <button id="sl-system-open-phone-contacts" class="menu_button" type="button"><i class="fa-solid fa-address-book" aria-hidden="true"></i> Phone contacts</button>
+                <button id="sl-system-open-music" class="menu_button" type="button"><i class="fa-solid fa-headphones" aria-hidden="true"></i> Music library</button>
                 <button id="sl-system-sync-from-settings" class="menu_button" type="button"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync latest turn</button>
                 <button id="sl-system-reset-event-position" class="menu_button" type="button"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i> Reset alert window position</button>
                 <span class="sl-system-ready-state"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Interface online</span>
