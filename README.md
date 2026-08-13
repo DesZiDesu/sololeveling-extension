@@ -4,7 +4,12 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.1.1 refines the compact obsidian-and-antique-bronze game dossier with smaller mobile skill records, readable wrapping Scene data, and substantial filled HP/MP meters. PC and mobile use deliberately different compositions rather than one layout merely shrinking at narrow widths.
+Version 1.2.0 introduces a configurable holographic void shell inspired by Solo Leveling's dark, electric-blue System language. The enclosing colored outline and bottom toolbar are gone, navigation is locked to horizontal touch movement, and primary controls now live together in the top-right header.
+
+- Background style can be Animated Void, Static Dark, or Transparent Glass. Interface, background, and particle colors remain independently configurable.
+- The side launcher is rebuilt as a compact angular holographic access rail with energy traces instead of the previous half-circle/orbit panel.
+- Missions now use stable compact cards with wrapping titles and isolated status chips in English and Thai.
+- Every missing reward pool is filled locally as soon as a mission is normalized, so completed missions always have three choices without making another model/API call.
 
 - The first per-chat record uses the active SillyTavern user persona as the Player name, while Administrator Mode can still override it later.
 - Status and Scene use narrow record headers, compact labeled fields, segmented meters, and restrained bronze hierarchy with far fewer decorative icons or SVGs.
@@ -47,7 +52,7 @@ Version 1.1.1 refines the compact obsidian-and-antique-bronze game dossier with 
 
 ## Live preview
 
-Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.1.1 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.2.0 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
 
 ## Installation
 
@@ -57,4 +62,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.1.1.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.2.0.

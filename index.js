@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '1.1.1';
+const UI_VERSION = '1.2.0';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -12,9 +12,10 @@ const DEFAULT_SETTINGS = Object.freeze({
     showWandLauncher: true,
     autoTrack: true,
     injectState: true,
-    accentColor: '#b9913f',
-    backgroundColor: '#0d0a07',
-    particleColor: '#c7a65b',
+    accentColor: '#4f7cff',
+    backgroundColor: '#050713',
+    particleColor: '#866cff',
+    backgroundMode: 'animated',
     glassOpacity: 96,
     glowStrength: 22,
     notificationPosition: 'top-center',
@@ -26,7 +27,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     eventNotificationY: null,
     language: 'auto',
     smartFallback: true,
-    visualVersion: 2,
+    visualVersion: 3,
 });
 
 const TABS = [
@@ -52,7 +53,7 @@ const I18N = {
         authorized_exchange: 'AUTHORIZED EXCHANGE', refill: 'REFILL RANDOM ITEMS', search: 'SEARCH', shop_empty: 'Shop inventory unavailable',
         player_interface: 'PLAYER INTERFACE', guide: 'GUIDE', sync: 'SYNC LATEST TURN', pending_actions: 'PENDING ACTIONS',
         player_identification: 'PLAYER IDENTIFICATION', edit: 'EDIT', rank: 'RANK', level: 'LEVEL', experience: 'EXPERIENCE', until_level: 'EXP until next level', ability_matrix: 'ABILITY MATRIX', attributes: 'Attributes', available_points: 'AVAILABLE POINTS', system_record: 'SYSTEM RECORD', current_data: 'Current Data', active_missions: 'Active Missions', acquired_skills: 'Acquired Skills', stored_items: 'Stored Items',
-        equipped_effects: 'EQUIPPED EFFECTS', loadout_summary: 'Loadout Summary', empty: 'EMPTY', no_equipment: 'No equipment is currently registered.', generate_rewards: 'GENERATE 3 REWARD CHOICES', generating_rewards: 'GENERATING REWARDS…', reward_pool_missing: 'This older mission needs a three-item reward pool before it can be claimed.', notification_view: 'VIEW DETAILS', notification_remove: 'REMOVE', notification_tap: 'TAP ONCE FOR CONTROLS', notification_compact: 'COMPACT', notification_full: 'FULL', date: 'DATE', day: 'DAY', year: 'YEAR', time: 'TIME', place: 'PLACE', location: 'LOCATION', position: 'POSITION', temperature: 'TEMPERATURE', weather: 'WEATHER', season: 'SEASON',
+        equipped_effects: 'EQUIPPED EFFECTS', loadout_summary: 'Loadout Summary', empty: 'EMPTY', no_equipment: 'No equipment is currently registered.', notification_view: 'VIEW DETAILS', notification_remove: 'REMOVE', notification_tap: 'TAP ONCE FOR CONTROLS', notification_compact: 'COMPACT', notification_full: 'FULL', date: 'DATE', day: 'DAY', year: 'YEAR', time: 'TIME', place: 'PLACE', location: 'LOCATION', position: 'POSITION', temperature: 'TEMPERATURE', weather: 'WEATHER', season: 'SEASON',
     },
     th: {
         tab_status: 'สถานะ', tab_missions: 'ภารกิจ', tab_skills: 'สกิล', tab_summons: 'อัญเชิญ', tab_inventory: 'คลัง', tab_equipment: 'อุปกรณ์', tab_shop: 'ร้านค้าระบบ', tab_scene: 'ฉาก',
@@ -65,7 +66,7 @@ const I18N = {
         authorized_exchange: 'ศูนย์แลกเปลี่ยนที่ได้รับอนุญาต', refill: 'สุ่มไอเทมใหม่', search: 'ค้นหา', shop_empty: 'ไม่มีสินค้าในร้านระบบ',
         player_interface: 'หน้าต่างผู้เล่น', guide: 'คู่มือ', sync: 'ซิงก์คำตอบล่าสุด', pending_actions: 'คำสั่งที่รอดำเนินการ',
         player_identification: 'ข้อมูลประจำตัวผู้เล่น', edit: 'แก้ไข', rank: 'แรงก์', level: 'เลเวล', experience: 'ค่าประสบการณ์', until_level: 'EXP ก่อนถึงเลเวลถัดไป', ability_matrix: 'ตารางความสามารถ', attributes: 'ค่าสถานะ', available_points: 'แต้มที่ใช้ได้', system_record: 'บันทึกระบบ', current_data: 'ข้อมูลปัจจุบัน', active_missions: 'ภารกิจที่ทำอยู่', acquired_skills: 'สกิลที่ได้รับ', stored_items: 'ไอเทมที่เก็บไว้',
-        equipped_effects: 'เอฟเฟกต์อุปกรณ์', loadout_summary: 'สรุปชุดอุปกรณ์', empty: 'ว่าง', no_equipment: 'ยังไม่มีอุปกรณ์ที่สวมใส่', generate_rewards: 'สร้างตัวเลือกรางวัล 3 ชิ้น', generating_rewards: 'กำลังสร้างรางวัล…', reward_pool_missing: 'ภารกิจเก่านี้ต้องสร้างตัวเลือกไอเทมรางวัล 3 ชิ้นก่อนรับรางวัล', notification_view: 'ดูรายละเอียด', notification_remove: 'นำออก', notification_tap: 'แตะหนึ่งครั้งเพื่อเปิดปุ่มควบคุม', notification_compact: 'กะทัดรัด', notification_full: 'เต็ม', date: 'วันที่', day: 'วัน', year: 'ปี', time: 'เวลา', place: 'สถานที่', location: 'ตำแหน่ง', position: 'จุดที่ยืน', temperature: 'อุณหภูมิ', weather: 'สภาพอากาศ', season: 'ฤดูกาล',
+        equipped_effects: 'เอฟเฟกต์อุปกรณ์', loadout_summary: 'สรุปชุดอุปกรณ์', empty: 'ว่าง', no_equipment: 'ยังไม่มีอุปกรณ์ที่สวมใส่', notification_view: 'ดูรายละเอียด', notification_remove: 'นำออก', notification_tap: 'แตะหนึ่งครั้งเพื่อเปิดปุ่มควบคุม', notification_compact: 'กะทัดรัด', notification_full: 'เต็ม', date: 'วันที่', day: 'วัน', year: 'ปี', time: 'เวลา', place: 'สถานที่', location: 'ตำแหน่ง', position: 'จุดที่ยืน', temperature: 'อุณหภูมิ', weather: 'สภาพอากาศ', season: 'ฤดูกาล',
     },
 };
 
@@ -133,7 +134,6 @@ let auraTimer = null;
 let imageEditorTarget = null;
 let imageEditorDraft = null;
 let shopGenerating = false;
-let questRewardGenerating = false;
 let smartFallbackBusy = false;
 let imageGesture = null;
 
@@ -163,9 +163,9 @@ function getSettings() {
     currentContext.extensionSettings[SETTINGS_KEY] ||= { ...DEFAULT_SETTINGS };
     const settings = currentContext.extensionSettings[SETTINGS_KEY];
     if (number(settings.visualVersion, 0) < DEFAULT_SETTINGS.visualVersion) {
-        if (['#35bfff', '#a790ff'].includes(settings.accentColor)) settings.accentColor = DEFAULT_SETTINGS.accentColor;
-        if (['#030e1c', '#080611'].includes(settings.backgroundColor)) settings.backgroundColor = DEFAULT_SETTINGS.backgroundColor;
-        if (['#6dd8ff', '#866cff'].includes(settings.particleColor)) settings.particleColor = DEFAULT_SETTINGS.particleColor;
+        if (['#35bfff', '#a790ff', '#b9913f'].includes(settings.accentColor)) settings.accentColor = DEFAULT_SETTINGS.accentColor;
+        if (['#030e1c', '#080611', '#0d0a07'].includes(settings.backgroundColor)) settings.backgroundColor = DEFAULT_SETTINGS.backgroundColor;
+        if (['#6dd8ff', '#c7a65b'].includes(settings.particleColor)) settings.particleColor = DEFAULT_SETTINGS.particleColor;
         if (settings.glowStrength === 58) settings.glowStrength = DEFAULT_SETTINGS.glowStrength;
         if (settings.glassOpacity === 90) settings.glassOpacity = DEFAULT_SETTINGS.glassOpacity;
         settings.visualVersion = DEFAULT_SETTINGS.visualVersion;
@@ -178,6 +178,7 @@ function getSettings() {
     if (!['compact', 'full'].includes(settings.notificationMode)) settings.notificationMode = DEFAULT_SETTINGS.notificationMode;
     if (!['left', 'right'].includes(settings.sidebarPosition)) settings.sidebarPosition = DEFAULT_SETTINGS.sidebarPosition;
     if (!['auto', 'desktop', 'mobile'].includes(settings.layoutMode)) settings.layoutMode = DEFAULT_SETTINGS.layoutMode;
+    if (!['animated', 'dark', 'transparent'].includes(settings.backgroundMode)) settings.backgroundMode = DEFAULT_SETTINGS.backgroundMode;
     settings.sidebarEnabled = settings.sidebarEnabled !== false;
     for (const key of ['eventNotificationX', 'eventNotificationY']) {
         if (settings[key] !== null && settings[key] !== undefined && Number.isFinite(Number(settings[key]))) settings[key] = number(settings[key], null, 0, 100);
@@ -208,7 +209,7 @@ function applyAppearance() {
     const island = document.getElementById('sl-system-island'); if (island) { island.setAttribute('data-position', settings.notificationPosition); island.setAttribute('data-view', settings.notificationMode); const icon = island.querySelector('[data-sl-island-mode] i'); if (icon) icon.className = `fa-solid ${settings.notificationMode === 'compact' ? 'fa-expand' : 'fa-compress'}`; }
     const edgeLauncher = document.getElementById('sl-system-edge-launcher'); if (edgeLauncher) edgeLauncher.dataset.side = settings.sidebarPosition;
     document.body?.classList.toggle('sl-aura-active', Boolean(auraSkill));
-    const overlay = document.getElementById('sl-system-overlay'); if (overlay) { overlay.dataset.aura = auraSkill?.id || ''; overlay.dataset.layout = settings.layoutMode; overlay.style.setProperty('--sl-aura-name', `"${String(auraSkill?.name || '').replaceAll('"', '')}"`); }
+    const overlay = document.getElementById('sl-system-overlay'); if (overlay) { overlay.dataset.aura = auraSkill?.id || ''; overlay.dataset.layout = settings.layoutMode; overlay.dataset.backgroundMode = settings.backgroundMode; overlay.style.setProperty('--sl-aura-name', `"${String(auraSkill?.name || '').replaceAll('"', '')}"`); }
     positionEdgeLauncher();
     positionEventNotice();
 }
@@ -317,6 +318,27 @@ function questRewardEntries(source) {
     });
 }
 
+function stableQuestHash(value) {
+    let hash = 2166136261;
+    for (const character of String(value || 'mission')) { hash ^= character.codePointAt(0); hash = Math.imul(hash, 16777619); }
+    return hash >>> 0;
+}
+
+function localQuestRewardOptions(source = {}) {
+    const id = text(source.id, 'mission', 100); const title = text(source.title || source.name, 'Mission', 120);
+    const seed = stableQuestHash(`${id}:${title}`); const experience = number(source.experienceReward ?? source.expReward, 100, 1, 999999999);
+    const rankScale = Math.max(1, Math.min(8, Math.ceil(experience / 150))); const rarity = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'][Math.min(4, Math.floor(rankScale / 2))];
+    const statKeys = ['strength', 'agility', 'vitality', 'intelligence', 'perception']; const stat = statKeys[seed % statKeys.length];
+    const thai = /[\u0E00-\u0E7F]/.test(title) || currentLanguage() === 'th';
+    const hp = 80 + rankScale * 45; const mp = 55 + rankScale * 35; const statGain = Math.max(1, Math.ceil(rankScale / 3));
+    const rewards = [
+        { id: `${id}-recovery`, type: 'item', name: thai ? 'ยาฟื้นฟูระบบ' : 'System Recovery Vial', amount: 1, item: { id: `${id}-recovery-item`, name: thai ? 'ยาฟื้นฟูระบบ' : 'System Recovery Vial', category: 'Potion', rarity, quantity: 1, description: thai ? `รางวัลภารกิจที่ฟื้นฟู HP ${hp} หน่วย` : `A mission-grade restorative that recovers ${hp} HP.`, price: 0, usable: true, effects: { hp, mp: 0, fatigue: 0, cure: false, detoxify: false, stats: {}, description: `Restore ${hp} HP` } } },
+        { id: `${id}-mana`, type: 'item', name: thai ? 'สารเร่งมานา' : 'Mana Resonance Ampoule', amount: 1, item: { id: `${id}-mana-item`, name: thai ? 'สารเร่งมานา' : 'Mana Resonance Ampoule', category: 'Potion', rarity, quantity: 1, description: thai ? `รางวัลภารกิจที่ฟื้นฟู MP ${mp} หน่วย` : `A condensed mana ampoule that recovers ${mp} MP.`, price: 0, usable: true, effects: { hp: 0, mp, fatigue: 0, cure: false, detoxify: false, stats: {}, description: `Restore ${mp} MP` } } },
+        { id: `${id}-growth`, type: 'item', name: thai ? 'ผลึกเติบโต' : 'Growth Crystal', amount: 1, item: { id: `${id}-growth-item`, name: thai ? 'ผลึกเติบโต' : 'Growth Crystal', category: 'Consumable', rarity, quantity: 1, description: thai ? `ผลึกรางวัลที่เพิ่ม ${stat.toUpperCase()} ${statGain} หน่วย` : `A mission crystal that permanently grants ${statGain} ${stat.toUpperCase()}.`, price: 0, usable: true, effects: { hp: 0, mp: 0, fatigue: 0, cure: false, detoxify: false, stats: { [stat]: statGain }, description: `${stat.toUpperCase()} +${statGain}` } } },
+    ];
+    return rewards.map((reward, index) => normalizeReward(reward, index)).filter(option => option?.item);
+}
+
 function normalizeQuest(source = {}) {
     if (!source || typeof source !== 'object' || !text(source.title || source.name)) return null;
     const objectiveSource = Array.isArray(source.objectives) ? source.objectives : (source.objectives && typeof source.objectives === 'object' ? Object.entries(source.objectives).map(([id, value]) => (typeof value === 'object' ? { id, ...value } : { id, label: id, current: value })) : (typeof source.objectives === 'string' ? [source.objectives] : []));
@@ -326,10 +348,13 @@ function normalizeQuest(source = {}) {
     const rewards = rewardSource.map(normalizeReward).filter(Boolean);
     const legacyExperience = rewards.find(reward => ['experience', 'exp'].includes(reward.type));
     const rawOptions = Array.isArray(source.rewardOptions) ? source.rewardOptions : (Array.isArray(source.itemChoices) ? source.itemChoices : rewards.filter(reward => reward.type === 'item'));
-    const rewardOptions = rawOptions.map((option, index) => normalizeReward((option?.item || option?.type === 'item') ? option : { id: option?.id, type: 'item', name: option?.name, amount: option?.quantity || 1, item: option }, index)).filter(option => option?.item).slice(0, 3);
+    const suppliedOptions = rawOptions.map((option, index) => normalizeReward((option?.item || option?.type === 'item') ? option : { id: option?.id, type: 'item', name: option?.name, amount: option?.quantity || 1, item: option }, index)).filter(option => option?.item).slice(0, 3);
     const completedObjectives = objectives.filter(objective => objective.completed).length;
+    const questIdentity = { id: text(source.id, uid('quest'), 100), title: text(source.title || source.name, 'Unnamed Quest', 120) };
+    const automaticOptions = localQuestRewardOptions({ ...source, ...questIdentity });
+    const rewardOptions = [...suppliedOptions, ...automaticOptions].filter((option, index, list) => list.findIndex(other => other.item.name.toLocaleLowerCase() === option.item.name.toLocaleLowerCase()) === index).slice(0, 3);
     return {
-        id: text(source.id, uid('quest'), 100), title: text(source.title || source.name, 'Unnamed Quest', 120),
+        ...questIdentity,
         type: text(source.type, 'Normal', 40), status: text(source.status, 'Active', 40),
         description: text(source.description, objectives.map(objective => objective.label).join(' · ') || 'No objective details recorded.', 2000),
         objectives,
@@ -389,9 +414,9 @@ function normalizeSkill(source = {}) {
         buffing,
         buff: {
             enabled: Boolean(buffSource.enabled),
-            auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowAura ? '#8b5cf6' : '#b9913f'),
-            backgroundColor: hexColor(buffSource.backgroundColor, shadowAura ? '#10081f' : '#0d0a07'),
-            particleColor: hexColor(buffSource.particleColor, shadowAura ? '#c4a7ff' : '#c7a65b'),
+            auraColor: hexColor(buffSource.auraColor || source.auraColor, shadowAura ? '#8b5cf6' : '#4f7cff'),
+            backgroundColor: hexColor(buffSource.backgroundColor, shadowAura ? '#10081f' : '#050713'),
+            particleColor: hexColor(buffSource.particleColor, shadowAura ? '#c4a7ff' : '#866cff'),
             durationSeconds: number(buffSource.durationSeconds, 60, 5, 86400), cooldownSeconds: number(buffSource.cooldownSeconds, 120, 0, 604800),
             mpDrain: number(buffSource.mpDrain, 5, 0, 999999), expiresAt: text(buffSource.expiresAt, '', 80), cooldownUntil: text(buffSource.cooldownUntil, '', 80),
         },
@@ -783,7 +808,7 @@ function buildEdgeLauncher() {
     if (document.getElementById('sl-system-edge-launcher')) return;
     const environment = document.createElement('button'); environment.id = 'sl-system-edge-environment'; environment.className = 'sl-system-edge-environment'; environment.type = 'button'; environment.setAttribute('aria-label', 'Close System shortcut'); environment.setAttribute('aria-hidden', 'true'); environment.addEventListener('click', () => setEdgeLauncher(false));
     const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.dataset.side = getSettings().sidebarPosition; launcher.hidden = true;
-    launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><div class="sl-edge-orbit" aria-hidden="true"><i></i><i></i><i></i></div><button type="button" data-sl-edge-open-system aria-label="Open The System"><span class="sl-edge-system-code">SYS</span><b>THE SYSTEM</b><small>OPEN INTERFACE</small></button><span class="sl-edge-scan" aria-hidden="true"></span></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show System shortcut" aria-expanded="false"><span class="sl-edge-handle-core">S</span><i class="fa-solid fa-chevron-left"></i><span class="sl-edge-handle-signal"></span></button>`;
+    launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><div class="sl-edge-energy" aria-hidden="true"><i></i><i></i><i></i></div><button type="button" data-sl-edge-open-system aria-label="Open player interface"><span class="sl-edge-system-code">PLAYER INTERFACE</span><b>OPEN STATUS</b><small>LIVE RECORD ACCESS</small></button><span class="sl-edge-scan" aria-hidden="true"></span></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show player interface shortcut" aria-expanded="false"><span class="sl-edge-handle-core"><i class="fa-solid fa-diamond"></i></span><i class="fa-solid fa-chevron-left"></i><span class="sl-edge-handle-signal"></span></button>`;
     const handle = launcher.querySelector('[data-sl-edge-toggle]');
     handle?.addEventListener('click', () => { if (suppressEdgeLauncherClick) { suppressEdgeLauncherClick = false; return; } setEdgeLauncher(!edgeLauncherOpen); });
     handle?.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; edgeLauncherGesture = { id: event.pointerId, x: event.clientX, y: event.clientY }; handle.setPointerCapture?.(event.pointerId); launcher.classList.add('is-touching'); });
@@ -1029,16 +1054,16 @@ function activateTab(tabId) {
 
 function updatePendingBadge() { const badge = document.getElementById('sl-pending-actions'); const count = getState().pendingActions.length; if (badge) { badge.textContent = `${count} ${t('pending_actions')}`; badge.dataset.active = String(count > 0); } }
 function updateAdministratorBadge() { const button = document.querySelector('[data-sl-action="open-admin"]'); if (button) { button.classList.toggle('is-active', getState().administratorMode); button.title = getState().administratorMode ? 'Administrator Mode enabled' : 'Open Administrator Mode'; } }
-function particleMarkup() { return `<div class="sl-system-particles" aria-hidden="true">${Array.from({ length: 24 }, (_, index) => `<i style="--n:${index};--x:${(index * 37) % 100};--d:${9 + (index % 7) * 2};--s:${1 + (index % 3)}"></i>`).join('')}</div>`; }
+function particleMarkup() { return `<div class="sl-system-particles" aria-hidden="true">${Array.from({ length: 36 }, (_, index) => `<i style="--n:${index};--x:${(index * 37) % 100};--d:${9 + (index % 7) * 2};--s:${1 + (index % 3)}"></i>`).join('')}</div>`; }
 function syncPersonaLabels() { document.querySelectorAll('[data-sl-persona-name]').forEach(element => { element.textContent = currentPersonaName(); }); }
 
 function buildInterface() {
     const existing = document.getElementById('sl-system-overlay'); if (existing?.dataset.slUiVersion === UI_VERSION && existing.querySelector('#sl-system-panel')) return; existing?.remove();
     const overlay = document.createElement('div'); overlay.id = 'sl-system-overlay'; overlay.className = 'sl-system-overlay'; overlay.dataset.slUiVersion = UI_VERSION; overlay.setAttribute('aria-hidden', 'true');
-    overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-panel" class="sl-system-panel" role="dialog" aria-modal="true" aria-labelledby="sl-system-title" tabindex="-1">${particleMarkup()}
+    overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-panel" class="sl-system-panel" role="dialog" aria-modal="true" aria-label="Player System Interface" tabindex="-1">${particleMarkup()}
       <div id="sl-system-notification" class="sl-system-phase sl-system-onboarding" hidden><div class="sl-onboarding-grid"><aside><span>LINK</span><b>${html(initials(currentPersonaName()))}</b><small>PERSONA INTERFACE</small></aside><main><div class="sl-onboarding-alert"><b>INITIAL CONTACT</b><span>NEW INTERFACE AVAILABLE</span></div><p class="sl-system-eyebrow">WELCOME SEQUENCE / <span data-sl-persona-name>${html(currentPersonaName())}</span></p><h2>Your story,<br><em>professionally recorded.</em></h2><div class="sl-welcome-sequence"><p><code>01</code><span><b>A private record is ready.</b><small>Progress belongs exclusively to this SillyTavern chat.</small></span></p><p><code>02</code><span><b>Your identity remains yours.</b><small>The Player record begins with the active persona: <strong data-sl-persona-name>${html(currentPersonaName())}</strong>.</small></span></p><p><code>03</code><span><b>Modules adapt to the narrative.</b><small>Missions, abilities, inventory, and scene data appear from confirmed events.</small></span></p><p><code>04</code><span><b>No predetermined path.</b><small>Fantasy, modern, supernatural, or another setting—the interface records your chosen world.</small></span></p></div><div class="sl-system-choice-row"><button type="button" data-sl-action="accept"><b>CONNECT</b><span>Initialize this chat</span></button><button type="button" data-sl-action="decline"><b>NOT NOW</b><span>Return to chat</span></button></div></main></div></div>
       <div id="sl-system-acknowledgement" class="sl-system-phase sl-system-acknowledgement" hidden><div class="sl-ack-core"><b class="sl-ack-code">SYS / 001</b><span class="sl-system-eyebrow">AUTHORIZATION COMPLETE</span><h2>WELCOME, <span data-sl-persona-name>${html(currentPersonaName())}</span>.</h2><p>This chat is now connected to The System.</p><div><i></i></div></div></div>
-      <div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><div class="sl-system-main-brand"><span class="sl-system-sys-mark">SYS</span><div><span class="sl-system-eyebrow">${t('player_interface')} / <span data-sl-persona-name>${html(currentPersonaName())}</span></span><h2 id="sl-system-title">THE SYSTEM</h2></div></div><span id="sl-pending-actions" class="sl-pending-actions">0 ${t('pending_actions')}</span><div class="sl-system-main-state"><i></i> ONLINE</div><div class="sl-header-tools"><button type="button" data-sl-action="open-guide" title="System Guide"><i class="fa-solid fa-circle-question"></i></button><button type="button" data-sl-action="open-admin" title="Administrator Mode"><i class="fa-solid fa-user-shield"></i></button></div><button class="sl-system-close" type="button" data-sl-action="close"><i class="fa-solid fa-xmark"></i></button></header><nav class="sl-system-nav" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main><footer class="sl-system-main-footer"><span><b>CHAT</b> PER-CHAT RECORD</span><button type="button" data-sl-action="open-guide"><i class="fa-solid fa-book-open"></i> ${t('guide')}</button><button type="button" data-sl-action="sync"><i class="fa-solid fa-rotate"></i> ${t('sync')}</button><span>v${UI_VERSION}</span></footer></div>
+      <div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><span id="sl-pending-actions" class="sl-pending-actions">0 ${t('pending_actions')}</span><div class="sl-system-main-state"><i></i> ONLINE</div><div class="sl-header-tools"><button type="button" data-sl-action="open-guide" title="System Guide" aria-label="System Guide"><i class="fa-solid fa-circle-question"></i></button><button type="button" data-sl-action="sync" title="Sync latest turn" aria-label="Sync latest turn"><i class="fa-solid fa-rotate"></i></button><button type="button" data-sl-action="open-admin" title="Administrator Mode" aria-label="Administrator Mode"><i class="fa-solid fa-user-shield"></i></button></div><button class="sl-system-close" type="button" data-sl-action="close" aria-label="Close interface"><i class="fa-solid fa-xmark"></i></button></header><nav class="sl-system-nav" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main></div>
       <div id="sl-item-modal" class="sl-submodal" hidden></div><div id="sl-image-editor" class="sl-submodal" hidden></div><div id="sl-guide-modal" class="sl-submodal" hidden></div><div id="sl-admin-modal" class="sl-submodal" hidden></div>
     </section>`;
     document.body.appendChild(overlay); overlay.querySelector('.sl-system-backdrop')?.addEventListener('click', closeInterface); overlay.querySelectorAll('[data-sl-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.slTab))); overlay.addEventListener('click', handleInterfaceClick); overlay.addEventListener('submit', handleInterfaceSubmit); overlay.addEventListener('input', handleInterfaceInput); syncPersonaLabels(); applyAppearance(); scheduleAuraExpiry(); renderAll();
@@ -1135,36 +1160,13 @@ function showItemModal(itemId) {
     modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet"><header><span>ITEM DOSSIER / ${html(item.id)}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-item-sheet-hero">${imageFrame(item.icon, item.category, 'is-large')}<div><span>${html(item.rarity)} · ${html(item.category)}</span><h3>${html(item.name)}</h3><p>${owned ? 'OWNED RECORD' : 'SHOP RECORD'} · ${item.usable ? 'CONSUMABLE' : canEquip ? 'EQUIPPABLE' : 'MATERIAL'}</p></div></div><dl class="sl-information-grid">${informationField('Quantity', item.quantity)}${informationField('Category', item.category)}${informationField('Rarity', item.rarity)}${informationField('Equipment slot', inferredSlot || 'Not applicable')}${informationField('Current state', equippedSlot ? `Equipped / ${equippedSlot}` : owned ? 'Stored' : 'Available for purchase')}${informationField('Unit value', `${item.price.toLocaleString()} ${state.currency.symbol}`)}</dl><section><h4>ITEM DESCRIPTION</h4><p>${html(item.description)}</p></section><section><h4>MECHANICAL EFFECTS</h4>${mechanics.length ? `<div class="sl-mechanic-grid">${mechanics.map(([label, value]) => `<div><span>${html(label)}</span><b>${html(value)}</b></div>`).join('')}</div>` : `<p class="sl-muted-copy">${html(itemEffectSummary(item))}</p>`}${item.effects.description ? `<p class="sl-effect-note">${html(item.effects.description)}</p>` : ''}</section><footer>${owned ? `<button type="button" data-sl-action="edit-item-image"><i class="fa-solid fa-image"></i> ${t('image')}</button>${item.usable ? `<button type="button" class="sl-primary-action" data-sl-action="use-item">${t('use')}</button>` : ''}${equippedSlot ? `<button type="button" data-sl-unequip="${html(equippedSlot)}">${t('unequip')}</button>` : canEquip ? `<button type="button" class="sl-primary-action" data-sl-action="equip-item">${t('equip')}</button>` : ''}` : `<button type="button" class="sl-primary-action" data-sl-buy="${html(item.id)}" ${state.currency.amount < item.price ? 'disabled' : ''}>${t('buy')} · ${item.price} ${html(state.currency.symbol)}</button>`}</footer></article>`; modal.hidden = false;
 }
 
-function questRewardPrompt(quest) {
-    return `Generate exactly 3 different item reward choices for this Solo Leveling-style mission. The player will choose only one and also receive ${quest.experienceReward} EXP. Match the mission difficulty, player level, and story language. Every item needs a useful mechanic and complete fields. Return only JSON: {"rewardOptions":[{"id":"unique-reward-id","type":"item","name":"...","amount":1,"item":{"id":"unique-item-id","name":"...","category":"Weapon|Armor|Gear|Potion|Consumable|Material|Misc","rarity":"Common|Uncommon|Rare|Epic|Legendary","quantity":1,"description":"...","price":0,"slot":"weapon|head|chest|hands|legs|feet|accessory|","usable":false,"effects":{"hp":0,"mp":0,"fatigue":0,"cure":false,"detoxify":false,"stats":{"strength":0,"agility":0,"vitality":0,"intelligence":0,"perception":0},"description":"..."}}}]}. Equippable items require a valid slot; consumables require usable:true and a meaningful effect. Mission: ${JSON.stringify(quest)}. Player: ${JSON.stringify(getState().player)}. No Markdown.`;
-}
-
-async function generateQuestRewardOptions(questId) {
-    const currentContext = context(); const quest = getState().quests.find(entry => entry.id === questId);
-    if (!quest || questRewardGenerating) return;
-    if (typeof currentContext.generateQuietPrompt !== 'function') return systemNotice('error', 'Reward generation unavailable', 'Active provider does not expose quiet generation');
-    questRewardGenerating = true; showQuestModal(quest.id, true); systemNotice('working', t('generating_rewards'), quest.title);
-    try {
-        const response = await generateQuiet(questRewardPrompt(quest), 1800); const parsed = parseModelJson(response);
-        const raw = Array.isArray(parsed) ? parsed : parsed?.rewardOptions;
-        const options = Array.isArray(raw) ? raw.map((entry, index) => normalizeReward((entry?.item || entry?.type === 'item') ? entry : { id: entry?.id, type: 'item', name: entry?.name, amount: entry?.quantity || 1, item: entry }, index)).filter(option => option?.item) : [];
-        const unique = options.filter((option, index, list) => list.findIndex(other => other.item.name.toLowerCase() === option.item.name.toLowerCase()) === index).slice(0, 3);
-        if (unique.length !== 3) throw new Error('The model did not return three different valid item rewards. Try again.');
-        const state = getState(); const liveQuest = state.quests.find(entry => entry.id === quest.id); if (!liveQuest) return;
-        liveQuest.rewardOptions = unique; selectedQuestRewardId = '';
-        await persistState(state, 'quest-reward-pool-generation', { detect: false });
-        systemNotice('reward', 'REWARD POOL READY', `${quest.title} · ${unique.length} choices`, { tab: 'quest', questId: quest.id });
-    } catch (error) { console.error('[The System] Reward generation failed.', error); systemNotice('error', 'REWARD GENERATION FAILED', error.message); }
-    finally { questRewardGenerating = false; if (selectedQuestId === quest.id && isInterfaceOpen()) showQuestModal(quest.id, true); }
-}
-
 function showQuestModal(questId, preserveSelection = false) {
     const quest = getState().quests.find(entry => entry.id === questId); if (!quest) return;
     if (!preserveSelection || selectedQuestId !== quest.id) selectedQuestRewardId = quest.claimedRewardId || '';
     selectedQuestId = quest.id; const modal = document.getElementById('sl-item-modal'); if (!modal) return;
     const claimable = quest.status.toLowerCase() === 'completed' && !quest.rewardClaimed;
     const options = quest.rewardOptions.map(option => { const selected = selectedQuestRewardId === option.id; return `<button type="button" class="sl-reward-option${selected ? ' is-selected' : ''}" data-sl-reward-option="${html(option.id)}" ${quest.rewardClaimed ? 'disabled' : ''}>${imageFrame(option.item.icon, option.item.category)}<span><b>${html(option.item.name)}${option.amount > 1 ? ` ×${option.amount}` : ''}</b><small>${html(itemEffectSummary(option.item))}</small></span><strong>${selected ? t('selected') : t('select')}</strong></button>`; }).join('');
-    const rewardPool = quest.rewardOptions.length === 3 ? options : `<div class="sl-reward-repair"><p>${t('reward_pool_missing')}</p><button type="button" data-sl-action="generate-quest-rewards" ${questRewardGenerating ? 'disabled' : ''}><i class="fa-solid ${questRewardGenerating ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}"></i> ${questRewardGenerating ? t('generating_rewards') : t('generate_rewards')}</button></div>`;
+    const rewardPool = options;
     modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-quest-sheet"><header><span>${t('mission_brief')}</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-quest-sheet-hero"><span><i class="fa-solid ${quest.daily ? 'fa-clock' : 'fa-scroll'}"></i></span><div><em>${quest.daily ? t('daily_protocol') : html(quest.type)}</em><h3>${html(quest.title)}</h3><p>${html(quest.status)} · ${questProgress(quest)}%</p></div></div><section><h4>${t('mission_brief')}</h4><p>${html(quest.description)}</p></section><section><h4>${t('objectives')}</h4><div class="sl-objective-list">${quest.objectives.map(objective => `<article class="${objective.completed ? 'is-complete' : ''}"><i class="fa-solid ${objective.completed ? 'fa-circle-check' : 'fa-crosshairs'}"></i><span><b>${html(objective.label)}</b><small>${objective.current} / ${objective.goal}${objective.unit ? ` ${html(objective.unit)}` : ''}</small></span><strong>${percent(objective.current, objective.goal)}%</strong></article>`).join('')}</div></section><section><h4>${t('rewards')}</h4><div class="sl-guaranteed-exp"><i class="fa-solid fa-arrow-trend-up"></i><span><b>${t('guaranteed_exp')}</b><small>+${quest.experienceReward} EXP</small></span></div><h5 class="sl-reward-choice-title">${t('choose_one')}</h5><div class="sl-reward-options">${rewardPool}</div></section>${quest.daily ? `<section class="sl-penalty-line"><i class="fa-solid fa-triangle-exclamation"></i><span><b>${t('deadline')}</b> ${html(quest.deadline)}<br><b>${t('penalty')}</b> ${html(quest.penalty.description)}</span></section>` : ''}<footer><button type="button" data-sl-action="close-modal">${t('close')}</button>${claimable ? `<button type="button" class="sl-primary-action" data-sl-action="claim-quest" ${quest.rewardOptions.length !== 3 || !selectedQuestRewardId ? 'disabled' : ''}><i class="fa-solid fa-gift"></i> ${t('claim_rewards')}</button>` : quest.rewardClaimed ? `<button type="button" disabled><i class="fa-solid fa-check"></i> ${t('rewards_claimed')}</button>` : ''}</footer></article>`;
     modal.hidden = false;
 }
@@ -1319,7 +1321,7 @@ function handleInterfaceClick(event) {
         const id = selectedShadowId; closeSubmodals(); openImageEditor(`summon:${id}`); return;
     }
     const action = event.target.closest('[data-sl-action]')?.dataset.slAction; const summonButton = event.target.closest('[data-sl-summon-action]'); const summonAction = summonButton?.dataset.slSummonAction; const summonId = summonButton?.dataset.summonId; const tab = event.target.closest('[data-sl-tab]')?.dataset.slTab; const item = event.target.closest('[data-sl-item]')?.dataset.slItem; const quest = event.target.closest('[data-sl-quest]')?.dataset.slQuest; const rewardOption = event.target.closest('[data-sl-reward-option]')?.dataset.slRewardOption; const skill = event.target.closest('[data-sl-skill]')?.dataset.slSkill; const skillImage = event.target.closest('[data-sl-skill-image]')?.dataset.slSkillImage; const shadow = event.target.closest('[data-sl-shadow]')?.dataset.slShadow; const preset = event.target.closest('[data-sl-preset]')?.dataset.slPreset; const upgrade = event.target.closest('[data-sl-upgrade]')?.dataset.slUpgrade; const buy = event.target.closest('[data-sl-buy]')?.dataset.slBuy; const unequip = event.target.closest('[data-sl-unequip]')?.dataset.slUnequip; const pager = event.target.closest('[data-sl-page]');
-    if (summonAction && summonId) manageSummon(summonId, summonAction); else if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'generate-quest-rewards') generateQuestRewardOptions(selectedQuestId); else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'disable-aura') disableAura(); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
+    if (summonAction && summonId) manageSummon(summonId, summonAction); else if (preset && imageEditorDraft) { imageEditorDraft.preset = preset; imageEditorDraft.image = ''; refreshImageEditorPreview(); } else if (rewardOption) { selectedQuestRewardId = rewardOption; showQuestModal(selectedQuestId, true); } else if (tab) activateTab(tab); else if (upgrade) upgradeStat(upgrade); else if (buy) buyItem(buy); else if (unequip) unequipSlot(unequip); else if (pager) { const page = number(pager.dataset.page, 1, 1); if (pager.dataset.slPage === 'inventory') inventoryPage = page; else shopPage = page; renderActivePanel(); } else if (skillImage) openImageEditor(`skill:${skillImage}`); else if (quest) showQuestModal(quest); else if (skill) showSkillModal(skill); else if (shadow) showShadowModal(shadow); else if (item && !event.target.closest('[data-sl-buy]')) showItemModal(item); else if (action === 'accept') acceptSystem(); else if (action === 'decline') declineSystem(); else if (action === 'close') closeInterface(); else if (action === 'sync') syncLatestTurn(); else if (action === 'open-guide') openGuide(); else if (action === 'open-admin') openAdministrator(); else if (action === 'toggle-admin') toggleAdministrator(); else if (action === 'edit-profile') openImageEditor('profile'); else if (action === 'admin-edit-image') { closeSubmodals(); openImageEditor('profile'); } else if (action === 'edit-item-image') openImageEditor(selectedItemId); else if (action === 'edit-selected-skill-image') { const id = selectedSkillId; closeSubmodals(); openImageEditor(`skill:${id}`); } else if (action === 'claim-quest') claimQuestRewards(selectedQuestId); else if (action === 'disable-aura') disableAura(); else if (action === 'close-modal' || action === 'close-image-editor') closeSubmodals(); else if (action === 'save-image') saveImageEditor(); else if (action === 'remove-image') { if (imageEditorDraft) { imageEditorDraft.image = ''; refreshImageEditorPreview(); } } else if (action === 'equip-item') equipItem(selectedItemId); else if (action === 'use-item') useItem(selectedItemId); else if (action === 'refill-shop') generateShop();
 }
 
 function handleInterfaceSubmit(event) {
@@ -1365,6 +1367,7 @@ function bindSettingsDrawer() {
     bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance);
     bindSettingControl('sl-system-sidebar-position', 'sidebarPosition', applyAppearance);
     bindSettingControl('sl-system-layout-mode', 'layoutMode', applyAppearance);
+    bindSettingControl('sl-system-background-mode', 'backgroundMode', applyAppearance);
     bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface);
     const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`;
     const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); const reset = document.getElementById('sl-system-reset-event-position');
