@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.8.0';
+const UI_VERSION = '0.8.1';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -96,10 +96,6 @@ const DEFAULT_STATE = Object.freeze({
     skills: [], shadowArmy: [], quests: [], inventory: [],
     equipment: { weapon: null, head: null, chest: null, hands: null, legs: null, feet: null, accessory: null },
     shop: [], pendingActions: [],
-    phone: {
-        profile: { name: 'Player', phoneNumber: '', image: '', background: '', model: 'iphone', islandStyle: 'modern' },
-        allowNpcCalls: true, allowNpcMessages: true, contacts: [], threads: [], callLogs: [], stickers: [],
-    },
     updatedAt: '', updateSource: 'initial',
 });
 
@@ -362,39 +358,6 @@ function normalizeShadow(source = {}) {
     };
 }
 
-function normalizePhoneContact(source = {}) {
-    if (!source || typeof source !== 'object' || !text(source.name || source.nickname)) return null;
-    return {
-        id: text(source.id, uid('contact'), 100), name: text(source.name || source.nickname, 'Unknown', 100),
-        nickname: text(source.nickname || source.name, '', 100), phoneNumber: text(source.phoneNumber, '', 40),
-        description: text(source.description, '', 500), image: typeof source.image === 'string' && source.image.startsWith('data:image/') ? source.image.slice(0, 1500000) : '',
-        blocked: Boolean(source.blocked), favorite: Boolean(source.favorite), createdAt: text(source.createdAt, new Date().toISOString(), 80),
-    };
-}
-
-function normalizePhoneMessage(source = {}, index = 0) {
-    if (!source || typeof source !== 'object' || (!text(source.text) && !text(source.stickerId))) return null;
-    return { id: text(source.id, `message-${index + 1}`, 100), senderId: text(source.senderId, 'user', 100), text: text(source.text, '', 2000), stickerId: text(source.stickerId, '', 100), at: text(source.at, new Date().toISOString(), 80), status: text(source.status, 'sent', 30) };
-}
-
-function normalizePhoneThread(source = {}) {
-    if (!source || typeof source !== 'object') return null;
-    const participants = Array.isArray(source.participants) ? source.participants.map(value => text(value, '', 100)).filter(Boolean).slice(0, 50) : [];
-    return { id: text(source.id, uid('thread'), 100), title: text(source.title, '', 120), participants, group: Boolean(source.group || participants.length > 1), pinned: Boolean(source.pinned), archived: Boolean(source.archived), unread: number(source.unread, 0, 0, 9999), messages: Array.isArray(source.messages) ? source.messages.map(normalizePhoneMessage).filter(Boolean).slice(-500) : [] };
-}
-
-function normalizePhone(source = {}) {
-    const profile = source.profile && typeof source.profile === 'object' ? source.profile : {};
-    return {
-        profile: { name: text(profile.name, 'Player', 100), phoneNumber: text(profile.phoneNumber, '', 40), image: typeof profile.image === 'string' && profile.image.startsWith('data:image/') ? profile.image.slice(0, 1500000) : '', background: typeof profile.background === 'string' && profile.background.startsWith('data:image/') ? profile.background.slice(0, 2500000) : '', model: ['iphone', 'galaxy', 'pixel', 'classic'].includes(profile.model) ? profile.model : 'iphone', islandStyle: ['modern', 'pill', 'compact', 'none'].includes(profile.islandStyle) ? profile.islandStyle : 'modern' },
-        allowNpcCalls: source.allowNpcCalls !== false, allowNpcMessages: source.allowNpcMessages !== false,
-        contacts: Array.isArray(source.contacts) ? source.contacts.map(normalizePhoneContact).filter(Boolean).slice(0, 300) : [],
-        threads: Array.isArray(source.threads) ? source.threads.map(normalizePhoneThread).filter(Boolean).slice(0, 300) : [],
-        callLogs: Array.isArray(source.callLogs) ? source.callLogs.filter(entry => entry && typeof entry === 'object').slice(-300) : [],
-        stickers: Array.isArray(source.stickers) ? source.stickers.filter(entry => entry && typeof entry === 'object' && typeof entry.image === 'string' && entry.image.startsWith('data:image/')).map(entry => ({ id: text(entry.id, uid('sticker'), 100), name: text(entry.name, 'Sticker', 80), image: entry.image.slice(0, 1000000) })).slice(0, 60) : [],
-    };
-}
-
 function normalizeState(source = {}, fallback = DEFAULT_STATE) {
     const base = clone(fallback);
     base.accepted = Boolean(source.accepted);
@@ -418,7 +381,6 @@ function normalizeState(source = {}, fallback = DEFAULT_STATE) {
     base.quests = Array.isArray(source.quests) ? source.quests.map(normalizeQuest).filter(Boolean).slice(0, 300) : [];
     base.inventory = Array.isArray(source.inventory) ? source.inventory.map(item => normalizeItem(item)).filter(Boolean).slice(0, 500) : [];
     base.shop = Array.isArray(source.shop) ? source.shop.map(item => normalizeItem(item, 'Misc')).filter(Boolean).slice(0, 100) : [];
-    base.phone = normalizePhone(source.phone);
     base.equipment = { ...base.equipment, ...(source.equipment && typeof source.equipment === 'object' ? source.equipment : {}) };
     for (const slot of Object.keys(base.equipment)) base.equipment[slot] = base.inventory.some(item => item.id === base.equipment[slot]) ? base.equipment[slot] : null;
     base.pendingActions = Array.isArray(source.pendingActions) ? source.pendingActions.filter(action => action && typeof action === 'object').slice(-30) : [];
@@ -483,7 +445,6 @@ function stateForPrompt(state) {
         player: state.player, skills: state.skills.map(({ icon, ...skill }) => skill), shadowArmy: state.shadowArmy, quests: state.quests,
         inventory: state.inventory.map(({ icon, ...item }) => item), equipment: state.equipment,
         shop: state.shop.map(({ icon, ...item }) => item), currency: state.currency, scene: state.scene,
-        phone: { ...state.phone, profile: { ...state.phone.profile, image: state.phone.profile.image ? '[saved image]' : '', background: state.phone.profile.background ? '[saved image]' : '' }, contacts: state.phone.contacts.map(({ image, ...contact }) => contact), stickers: state.phone.stickers.map(sticker => ({ id: sticker.id, name: sticker.name })) },
         pendingActions: state.pendingActions,
     };
 }
@@ -494,9 +455,6 @@ function patchInstructions() {
         '<!--solo_system_patch:{"ops":[["inc","player.experience",5],["upsert","quests",{"id":"daily-training","title":"Daily Training","status":"Active","objectives":[{"id":"pushups","label":"Push-ups","current":20,"goal":100,"unit":"reps","completed":false}],"experienceReward":100,"rewardOptions":[{"id":"reward-potion","type":"item","name":"Recovery Potion","amount":1,"item":{"id":"recovery-potion","name":"Recovery Potion","category":"Potion","rarity":"Common","quantity":1,"description":"Restores HP.","price":100,"slot":"","usable":true,"effects":{"hp":50,"mp":0,"fatigue":0,"cure":false,"detoxify":false,"stats":{},"description":"Restore 50 HP"}}}]}],["upsert","skills",{"id":"shadow-extraction","name":"Shadow Extraction","rank":"S","type":"Active","level":1,"mastery":10,"masteryRequired":100,"activationRequired":true}]],"summary":"Training recorded."}-->',
         'Allowed operations: set, inc, upsert, delete. Arrays are addressed by their canonical path and entries by id.',
         'Track confirmed level, experience, HP, MP, stats, statPoints, currency, titles, skills, quests, inventory, equipment, shop, shadowArmy, and every scene field.',
-        'Track the in-world smartphone when relevant. New recurring or named NPCs may be upserted into phone.contacts with {id,name,nickname,phoneNumber,description} when the story confirms the Player knows how to contact them. Do not add incidental strangers. Respect blocked contacts.',
-        'Phone drafts and calls appear in pendingActions. When pending phone messages exist, answer them naturally as the addressed NPCs in the same normal reply and upsert the matching phone.threads entry with complete participants and messages, appending NPC replies after the user messages. When an incoming NPC message or call is justified by the story, add it only if phone.allowNpcMessages or phone.allowNpcCalls is true. Blocked contacts may not initiate contact.',
-        'For an incoming call, upsert phone.callLogs with {id,contactId,direction:"incoming",status:"ringing|answered|declined|missed",startedAt,endedAt,transcript:[]}. Calls are story events, not guaranteed random interruptions. Phone chat and call content should match the active role-play language and character voice.',
         'A quest must contain objectives as an array of {id,label,current,goal,unit,completed}. Keep every objective and update its current value independently (for example push-ups 20/100, sit-ups 40/100, running 3/10 km). Never replace objective details with only one total progress number.',
         'Every quest must have experienceReward greater than 0 and rewardOptions containing exactly 3 different item rewards. Each option is {id,type:"item",name,amount,item:{complete item}}. When every objective is complete, set status:"Completed" but leave rewardClaimed:false and do not add EXP or items; the user chooses exactly one item and claims it with the guaranteed EXP in the UI.',
         'Daily quests use daily:true, a deadline string, and penalty {hp,mp,currency,experience,description}. Mark status Failed or Expired only when the story confirms the deadline was missed; the extension applies that penalty once.',
@@ -656,7 +614,7 @@ function buildIsland() {
     document.body.appendChild(island);
 }
 
-const EVENT_NOTICE_MODES = new Set(['level', 'reward', 'quest', 'skill', 'title', 'item', 'equipment', 'shop', 'danger', 'heal', 'mana', 'stat', 'scene', 'phone']);
+const EVENT_NOTICE_MODES = new Set(['level', 'reward', 'quest', 'skill', 'title', 'item', 'equipment', 'shop', 'danger', 'heal', 'mana', 'stat', 'scene']);
 
 function systemNotice(mode, title, detail = '', destination = {}) {
     if (destination?.event !== false && (destination?.event || EVENT_NOTICE_MODES.has(mode))) return eventNotice(mode, title, detail, destination);
@@ -709,7 +667,7 @@ function positionEdgeLauncher() {
 function buildEdgeLauncher() {
     if (document.getElementById('sl-system-edge-launcher')) return;
     const launcher = document.createElement('aside'); launcher.id = 'sl-system-edge-launcher'; launcher.className = 'sl-system-edge-launcher'; launcher.dataset.side = getSettings().sidebarPosition; launcher.hidden = true;
-    launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><button type="button" data-sl-edge-open-system aria-label="Open The System"><span><i class="fa-solid fa-diamond"></i></span><b>THE SYSTEM</b><small>OPEN</small></button><button type="button" data-sl-edge-open-phone aria-label="Open smartphone"><span><i class="fa-solid fa-mobile-screen-button"></i></span><b>SMARTPHONE</b><small>OPEN</small></button><i class="sl-edge-scan"></i></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show shortcuts" aria-expanded="false"><i class="fa-solid fa-chevron-left"></i><span></span></button>`;
+    launcher.innerHTML = `<div class="sl-edge-tray" aria-hidden="true"><button type="button" data-sl-edge-open-system aria-label="Open The System"><span><i class="fa-solid fa-diamond"></i></span><b>THE SYSTEM</b><small>OPEN</small></button><i class="sl-edge-scan"></i></div><button class="sl-edge-handle" type="button" data-sl-edge-toggle aria-label="Show System shortcut" aria-expanded="false"><i class="fa-solid fa-chevron-left"></i><span></span></button>`;
     const handle = launcher.querySelector('[data-sl-edge-toggle]');
     handle?.addEventListener('click', () => { if (suppressEdgeLauncherClick) { suppressEdgeLauncherClick = false; return; } setEdgeLauncher(!edgeLauncherOpen); });
     handle?.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; edgeLauncherGesture = { id: event.pointerId, x: event.clientX, y: event.clientY }; handle.setPointerCapture?.(event.pointerId); launcher.classList.add('is-touching'); });
@@ -717,20 +675,18 @@ function buildEdgeLauncher() {
     const release = event => { if (!edgeLauncherGesture || edgeLauncherGesture.id !== event.pointerId) return; const dx = event.clientX - edgeLauncherGesture.x; const dy = event.clientY - edgeLauncherGesture.y; if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) { suppressEdgeLauncherClick = true; const inward = launcher.dataset.side === 'left' ? dx > 0 : dx < 0; setEdgeLauncher(inward); setTimeout(() => { suppressEdgeLauncherClick = false; }, 0); } launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; };
     handle?.addEventListener('pointerup', release); handle?.addEventListener('pointercancel', event => { launcher.classList.remove('is-touching', 'is-peeking'); edgeLauncherGesture = null; suppressEdgeLauncherClick = false; });
     launcher.querySelector('[data-sl-edge-open-system]')?.addEventListener('click', () => { setEdgeLauncher(false); openInterface(); });
-    launcher.querySelector('[data-sl-edge-open-phone]')?.addEventListener('click', () => { setEdgeLauncher(false); globalThis.TheSystemPhone?.open?.(); });
     document.body.appendChild(launcher); positionEdgeLauncher(); syncEdgeLauncherVisibility();
 }
 
 function noticeIcon(mode) {
-    return ({ level: 'fa-arrow-up', reward: 'fa-gift', quest: 'fa-scroll', skill: 'fa-bolt', title: 'fa-crown', item: 'fa-box-open', equipment: 'fa-shield-halved', shop: 'fa-cart-shopping', danger: 'fa-triangle-exclamation', heal: 'fa-heart-pulse', mana: 'fa-droplet', stat: 'fa-chart-line', scene: 'fa-location-crosshairs', phone: 'fa-mobile-screen-button' })[mode] || 'fa-exclamation';
+    return ({ level: 'fa-arrow-up', reward: 'fa-gift', quest: 'fa-scroll', skill: 'fa-bolt', title: 'fa-crown', item: 'fa-box-open', equipment: 'fa-shield-halved', shop: 'fa-cart-shopping', danger: 'fa-triangle-exclamation', heal: 'fa-heart-pulse', mana: 'fa-droplet', stat: 'fa-chart-line', scene: 'fa-location-crosshairs' })[mode] || 'fa-exclamation';
 }
 
 function noticeLabel(mode) {
-    return ({ level: 'LEVEL ALERT', reward: 'REWARD ALERT', quest: 'MISSION ALERT', skill: 'SKILL ALERT', title: 'TITLE ALERT', item: 'ITEM ALERT', equipment: 'EQUIPMENT ALERT', shop: 'SHOP ALERT', danger: 'DANGER ALERT', heal: 'RECOVERY ALERT', mana: 'MANA ALERT', stat: 'STATUS ALERT', scene: 'SCENE ALERT', phone: 'PHONE ALERT' })[mode] || 'SYSTEM ALERT';
+    return ({ level: 'LEVEL ALERT', reward: 'REWARD ALERT', quest: 'MISSION ALERT', skill: 'SKILL ALERT', title: 'TITLE ALERT', item: 'ITEM ALERT', equipment: 'EQUIPMENT ALERT', shop: 'SHOP ALERT', danger: 'DANGER ALERT', heal: 'RECOVERY ALERT', mana: 'MANA ALERT', stat: 'STATUS ALERT', scene: 'SCENE ALERT' })[mode] || 'SYSTEM ALERT';
 }
 
 function navigateNotice(destination = {}) {
-    if (destination.phoneView) { globalThis.TheSystemPhone?.open?.(destination.phoneView); return; }
     openInterface();
     if (destination.tab) activateTab(destination.tab);
     if (destination.questId) showQuestModal(destination.questId);
@@ -763,7 +719,7 @@ function playNextEventNotice() {
     panel.querySelector('[data-sl-event-title]').textContent = eventNoticeCurrent.title;
     panel.querySelector('[data-sl-event-detail]').textContent = eventNoticeCurrent.detail || 'The System has detected a confirmed change.';
     const icon = panel.querySelector('.sl-event-alarm > i'); if (icon) icon.className = `fa-solid ${noticeIcon(eventNoticeCurrent.mode)}`;
-    const interactive = Boolean(eventNoticeCurrent.destination?.tab || eventNoticeCurrent.destination?.questId || eventNoticeCurrent.destination?.skillId || eventNoticeCurrent.destination?.itemId || eventNoticeCurrent.destination?.shadowId || eventNoticeCurrent.destination?.phoneView);
+    const interactive = Boolean(eventNoticeCurrent.destination?.tab || eventNoticeCurrent.destination?.questId || eventNoticeCurrent.destination?.skillId || eventNoticeCurrent.destination?.itemId || eventNoticeCurrent.destination?.shadowId);
     panel.classList.toggle('is-interactive', interactive); panel.querySelector('[data-sl-event-open]').hidden = !interactive;
     panel.querySelector('.sl-event-queue').textContent = String(eventNoticeQueue.length + 1).padStart(2, '0');
     panel.classList.toggle('is-visible', shouldShowNotifications()); positionEventNotice();
@@ -817,9 +773,6 @@ function announceChanges(before, after, source) {
         else if (old && JSON.stringify(quest.objectives) !== JSON.stringify(old.objectives)) notices.push(['quest', 'MISSION PROGRESS UPDATED', quest.title, { tab: 'quest', questId: quest.id }]);
     });
     after.shadowArmy.filter(shadow => !before.shadowArmy.some(old => old.id === shadow.id)).forEach(shadow => notices.push(['skill', 'SHADOW EXTRACTED!', `${shadow.name} · ${shadow.rank}-Rank ${shadow.class}`, { tab: 'skills', shadowId: shadow.id }]));
-    after.phone.contacts.filter(contact => !before.phone.contacts.some(old => old.id === contact.id)).forEach(contact => notices.push(['phone', 'CONTACT ADDED', contact.nickname || contact.name, { phoneView: 'contacts' }]));
-    after.phone.threads.forEach(thread => { const old = before.phone.threads.find(entry => entry.id === thread.id); const incoming = thread.messages.filter(message => message.senderId !== 'user').length - (old?.messages.filter(message => message.senderId !== 'user').length || 0); if (incoming > 0) notices.push(['phone', 'NEW MESSAGE', `${thread.title || 'Smartphone conversation'} · ${incoming} new`, { phoneView: 'messages' }]); });
-    after.phone.callLogs.filter(call => !before.phone.callLogs.some(old => old.id === call.id) && call.direction === 'incoming').forEach(call => { const contact = after.phone.contacts.find(entry => entry.id === call.contactId); notices.push(['phone', call.status === 'ringing' ? 'INCOMING CALL' : 'PHONE CALL', contact?.nickname || contact?.name || 'Unknown caller', { phoneView: 'calls' }]); });
     if (JSON.stringify(after.scene) !== JSON.stringify(before.scene)) notices.push(['scene', 'SCENE UPDATED', `${after.scene.place} · ${after.scene.time}`, { tab: 'scene' }]);
     if (!notices.length && source === 'assistant-patch') notices.push(['sync', 'SYSTEM UPDATED', 'State synchronized with the latest reply']);
     notices.slice(0, 6).forEach(item => systemNotice(...item));
@@ -929,7 +882,7 @@ function buildInterface() {
     const existing = document.getElementById('sl-system-overlay'); if (existing?.dataset.slUiVersion === UI_VERSION && existing.querySelector('#sl-system-panel')) return; existing?.remove();
     const overlay = document.createElement('div'); overlay.id = 'sl-system-overlay'; overlay.className = 'sl-system-overlay'; overlay.dataset.slUiVersion = UI_VERSION; overlay.setAttribute('aria-hidden', 'true');
     overlay.innerHTML = `<button class="sl-system-backdrop" type="button" aria-label="Close The System"></button><section id="sl-system-panel" class="sl-system-panel" role="dialog" aria-modal="true" aria-labelledby="sl-system-title" tabindex="-1">${particleMarkup()}
-      <div id="sl-system-notification" class="sl-system-phase sl-system-onboarding" hidden><div class="sl-onboarding-grid"><aside><span>LINK</span><b>?</b><small>PERSONAL INTERFACE</small></aside><main><div class="sl-onboarding-alert"><i class="fa-solid fa-satellite-dish"></i><span>NEW INTERFACE DETECTED</span></div><p class="sl-system-eyebrow">WELCOME SEQUENCE</p><h2>Your story,<br><em>now connected.</em></h2><div class="sl-welcome-sequence"><p><i class="fa-solid fa-diamond"></i><span><b>A personal record is ready.</b><small>Your progress belongs to this chat alone.</small></span></p><p><i class="fa-solid fa-shield-halved"></i><span><b>No destiny has been assigned.</b><small>The interface records the path you actually choose.</small></span></p><p><i class="fa-solid fa-mobile-screen-button"></i><span><b>Tools will grow with your world.</b><small>System modules and smartphone services respond to the role-play.</small></span></p><p><i class="fa-solid fa-sparkles"></i><span><b>Welcome, traveler.</b><small>Fantasy, modern, supernatural, or anything between—the interface adapts.</small></span></p></div><div class="sl-system-choice-row"><button type="button" data-sl-action="accept"><b>CONNECT</b><span>Initialize this chat</span></button><button type="button" data-sl-action="decline"><b>NOT NOW</b><span>Return to chat</span></button></div></main></div></div>
+      <div id="sl-system-notification" class="sl-system-phase sl-system-onboarding" hidden><div class="sl-onboarding-grid"><aside><span>LINK</span><b>?</b><small>PERSONAL INTERFACE</small></aside><main><div class="sl-onboarding-alert"><i class="fa-solid fa-satellite-dish"></i><span>NEW INTERFACE DETECTED</span></div><p class="sl-system-eyebrow">WELCOME SEQUENCE</p><h2>Your story,<br><em>now connected.</em></h2><div class="sl-welcome-sequence"><p><i class="fa-solid fa-diamond"></i><span><b>A personal record is ready.</b><small>Your progress belongs to this chat alone.</small></span></p><p><i class="fa-solid fa-shield-halved"></i><span><b>No destiny has been assigned.</b><small>The interface records the path you actually choose.</small></span></p><p><i class="fa-solid fa-layer-group"></i><span><b>Tools will grow with your world.</b><small>System modules respond to the role-play and confirmed story events.</small></span></p><p><i class="fa-solid fa-sparkles"></i><span><b>Welcome, traveler.</b><small>Fantasy, modern, supernatural, or anything between—the interface adapts.</small></span></p></div><div class="sl-system-choice-row"><button type="button" data-sl-action="accept"><b>CONNECT</b><span>Initialize this chat</span></button><button type="button" data-sl-action="decline"><b>NOT NOW</b><span>Return to chat</span></button></div></main></div></div>
       <div id="sl-system-acknowledgement" class="sl-system-phase sl-system-acknowledgement" hidden><div class="sl-ack-core"><i class="fa-solid fa-diamond"></i><span class="sl-system-eyebrow">AUTHORIZATION COMPLETE</span><h2>WELCOME, PLAYER.</h2><p>This chat is now connected to The System.</p><div><i></i></div></div></div>
       <div id="sl-system-main" class="sl-system-phase sl-system-main" hidden><header class="sl-system-main-header"><div class="sl-system-main-brand"><span class="sl-system-sys-mark"><i class="fa-solid fa-diamond"></i></span><div><span class="sl-system-eyebrow">${t('player_interface')}</span><h2 id="sl-system-title">THE SYSTEM</h2></div></div><span id="sl-pending-actions" class="sl-pending-actions">0 ${t('pending_actions')}</span><div class="sl-system-main-state"><i></i> ONLINE</div><div class="sl-header-tools"><button type="button" data-sl-action="open-guide" title="System Guide"><i class="fa-solid fa-circle-question"></i></button><button type="button" data-sl-action="open-admin" title="Administrator Mode"><i class="fa-solid fa-user-shield"></i></button></div><button class="sl-system-close" type="button" data-sl-action="close"><i class="fa-solid fa-xmark"></i></button></header><nav class="sl-system-nav" role="tablist">${TABS.map((tab, index) => tabButton(tab, index === 0)).join('')}</nav><main class="sl-system-content">${TABS.map((tab, index) => `<section id="sl-system-panel-${tab.id}" class="sl-system-tab-panel${index === 0 ? ' is-active' : ''}" data-sl-panel="${tab.id}" role="tabpanel" ${index ? 'hidden' : ''}></section>`).join('')}</main><footer class="sl-system-main-footer"><span><i class="fa-solid fa-link"></i> PER-CHAT RECORD</span><button type="button" data-sl-action="open-guide"><i class="fa-solid fa-book-open"></i> ${t('guide')}</button><button type="button" data-sl-action="sync"><i class="fa-solid fa-rotate"></i> ${t('sync')}</button><span>v${UI_VERSION}</span></footer></div>
       <div id="sl-item-modal" class="sl-submodal" hidden></div><div id="sl-image-editor" class="sl-submodal" hidden></div><div id="sl-guide-modal" class="sl-submodal" hidden></div><div id="sl-admin-modal" class="sl-submodal" hidden></div>
@@ -1202,20 +1155,8 @@ function bindSettingsDrawer() {
     bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface);
     const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`;
     const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); const reset = document.getElementById('sl-system-reset-event-position');
-    const phoneSettings = document.getElementById('sl-system-open-phone-settings'); const phoneContacts = document.getElementById('sl-system-open-phone-contacts'); const music = document.getElementById('sl-system-open-music'); const addMusic = document.getElementById('sl-system-add-music');
     if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; if (reset) reset.onclick = resetEventNoticePosition;
-    if (phoneSettings) phoneSettings.onclick = () => globalThis.TheSystemPhone?.settings?.();
-    if (phoneContacts) phoneContacts.onclick = () => globalThis.TheSystemPhone?.contacts?.();
-    if (music) music.onclick = () => globalThis.TheSystemPhone?.music?.();
-    if (addMusic) addMusic.onclick = async () => { const file = document.getElementById('sl-system-music-file')?.files?.[0]; const scope = document.getElementById('sl-system-music-scope')?.value || 'chat'; try { if (!file) return systemNotice('warning', 'Choose a music file first'); await globalThis.TheSystemPhone?.addMusic?.(file, scope); systemNotice('sync', 'MUSIC ADDED', `${file.name} · ${scope}`, { event: false }); } catch (error) { systemNotice('error', 'Could not add music', error.message, { event: false }); } };
     applyAppearance();
-}
-
-async function initializeSmartphone() {
-    try {
-        const module = await import(`./smartphone.js?v=${UI_VERSION}`);
-        module.initializePhone({ getState, persistState, queueAction, generateQuiet, parseModelJson, notify: systemNotice, getChatId: () => context().getCurrentChatId?.() || '', latestChat: () => (context().chat || []).filter(message => message?.mes && !message.is_system).slice(-8).map(message => ({ role: message.is_user ? 'user' : 'assistant', text: String(message.mes).slice(0, 4000) })) });
-    } catch (error) { console.error('[The System] Smartphone module failed to initialize.', error); }
 }
 
 async function addSettingsDrawer() { if (document.getElementById('sl-system-settings')) { bindSettingsDrawer(); return true; } const container = document.getElementById('extensions_settings2'); if (!container) return false; const rendered = await context().renderExtensionTemplateAsync?.(EXTENSION_FOLDER, 'settings'); if (!rendered) return false; container.insertAdjacentHTML('beforeend', rendered); bindSettingsDrawer(); return true; }
@@ -1223,7 +1164,7 @@ function observeSettingsDrawer() { if (settingsObserver) return; settingsObserve
 
 function bindChatEvents() {
     const currentContext = context(); if (!currentContext.eventSource?.on || !currentContext.eventTypes) return; const { eventSource, eventTypes } = currentContext;
-    if (eventTypes.CHAT_CHANGED) eventSource.on(eventTypes.CHAT_CHANGED, () => { islandQueue = []; finishIslandNotice(); setEdgeLauncher(false); globalThis.TheSystemPhone?.close?.(); closeSubmodals(); activeTab = 'status'; updatePrompt(); renderAll(); const state = getState(); if (document.getElementById('sl-system-overlay')?.classList.contains('is-open')) showPhase(state.accepted ? 'main' : 'notification'); syncEdgeLauncherVisibility(); });
+    if (eventTypes.CHAT_CHANGED) eventSource.on(eventTypes.CHAT_CHANGED, () => { islandQueue = []; finishIslandNotice(); setEdgeLauncher(false); closeSubmodals(); activeTab = 'status'; updatePrompt(); renderAll(); const state = getState(); if (document.getElementById('sl-system-overlay')?.classList.contains('is-open')) showPhase(state.accepted ? 'main' : 'notification'); syncEdgeLauncherVisibility(); });
     if (eventTypes.MESSAGE_SENT) eventSource.on(eventTypes.MESSAGE_SENT, () => {
         updatePrompt(); renderAll(); const state = getState(); if (!state.accepted) return; setEdgeLauncher(false);
         const latest = [...(context().chat || [])].reverse().find(message => message?.is_user && !message.is_system)?.mes || '';
@@ -1231,13 +1172,13 @@ function bindChatEvents() {
         if (activated) systemNotice('skill', 'VOICE COMMAND DETECTED', `${activated.name} · “${activated.activationWord}”`, { tab: 'skills', skillId: activated.id });
         systemNotice('working', 'SYSTEM MONITORING', 'Waiting for the next reply…', { persistent: true, event: false });
     });
-    if (eventTypes.MESSAGE_RECEIVED) eventSource.on(eventTypes.MESSAGE_RECEIVED, async (...args) => { try { await processAssistantPatch(...args); globalThis.TheSystemPhone?.refresh?.(); } finally { finishIslandNotice(); } });
+    if (eventTypes.MESSAGE_RECEIVED) eventSource.on(eventTypes.MESSAGE_RECEIVED, async (...args) => { try { await processAssistantPatch(...args); } finally { finishIslandNotice(); } });
     for (const eventName of ['GENERATION_STOPPED', 'GENERATION_ABORTED']) if (eventTypes[eventName]) eventSource.on(eventTypes[eventName], finishIslandNotice);
 }
 
 async function initialize() {
     if (initialized) return; initialized = true;
-    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); await initializeSmartphone(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); const savedState = getState(); if (savedState.accepted && savedState.player.experience >= savedState.player.experienceRequired) await persistState(savedState, 'automatic-level-up'); else updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if (document.getElementById('sl-phone-overlay')?.classList.contains('is-open')) globalThis.TheSystemPhone?.close?.(); else if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', () => { positionEventNotice(); positionEdgeLauncher(); }, { passive: true }); globalThis.visualViewport?.addEventListener('resize', positionEdgeLauncher, { passive: true }); globalThis.visualViewport?.addEventListener('scroll', positionEdgeLauncher, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice, phone: globalThis.TheSystemPhone }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
+    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); const savedState = getState(); if (savedState.accepted && savedState.player.experience >= savedState.player.experienceRequired) await persistState(savedState, 'automatic-level-up'); else updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', () => { positionEventNotice(); positionEdgeLauncher(); }, { passive: true }); globalThis.visualViewport?.addEventListener('resize', positionEdgeLauncher, { passive: true }); globalThis.visualViewport?.addEventListener('scroll', positionEdgeLauncher, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
     catch (error) { initialized = false; console.error('[The System] Failed to initialize.', error); }
 }
 
