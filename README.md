@@ -4,12 +4,12 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 0.8.1 keeps the complete System feature set focused on Solo Leveling role-play. It includes the broader first-run welcome sequence and an optional side launcher that can be placed on either screen edge or disabled entirely.
+Version 0.9.0 adds a conditional, fully manageable Summons workspace and temporary skill-driven interface auras while keeping the complete System feature set focused on Solo Leveling role-play.
 
 - A multi-message welcome sequence replaces the previous single threatening onboarding message.
 
 - Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
-- Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation.
+- Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation, plus a Summons tab that appears only when a summoning-type skill is owned.
 - Profile, item, and skill icon editors with position, zoom, uploads, and skill SVG presets.
 - Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
 - AI-powered shop refill and item search with support for current and legacy SillyTavern quiet-generation signatures and tolerant JSON parsing.
@@ -23,8 +23,9 @@ Version 0.8.1 keeps the complete System feature set focused on Solo Leveling rol
 - Independent main, background, and particle colors with compact circular color controls.
 - A dedicated Scene tab for date, day, year, time, place, location, specific current position, temperature, weather, and season.
 - Tap-to-open missions with per-objective progress, deadlines, penalties, structured AI-generated rewards, and one-time reward claiming.
-- Skills with rank, level, mastery, usage tracking, customizable icons, and saved voice activation words.
-- Shadow Extraction support with responsive Shadow Army records for name, rank, level, class, status, stats, description, and abilities.
+- Skills with rank, level, mastery, usage tracking, customizable icons, and up to ten saved voice activation phrases per skill.
+- Shadow Extraction and generic summoning support with level-scaled storage capacity, deployed/stored management, detailed responsive unit records, and a two-step permanent soul dismissal flow.
+- Configurable buff-skill interface auras that temporarily recolor the System, consume MP, expire into cooldown, and can be manually disabled.
 - System Credits for purchases, rewards, and penalties.
 - Administrator Mode with direct profile, progression, attribute, currency, and position controls—no JSON editing required.
 - Direct image manipulation with one-finger/mouse dragging and two-finger pinch zoom.
@@ -43,4 +44,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v0.8.1.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v0.9.0.
