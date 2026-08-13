@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '0.6.2';
+const UI_VERSION = '0.7.0';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -18,6 +18,9 @@ const DEFAULT_SETTINGS = Object.freeze({
     glassOpacity: 90,
     glowStrength: 58,
     notificationPosition: 'top-center',
+    notificationMode: 'compact',
+    eventNotificationX: null,
+    eventNotificationY: null,
     language: 'auto',
     smartFallback: true,
 });
@@ -44,7 +47,7 @@ const I18N = {
         authorized_exchange: 'AUTHORIZED EXCHANGE', refill: 'REFILL RANDOM ITEMS', search: 'SEARCH', shop_empty: 'Shop inventory unavailable',
         player_interface: 'PLAYER INTERFACE', guide: 'GUIDE', sync: 'SYNC LATEST TURN', pending_actions: 'PENDING ACTIONS',
         player_identification: 'PLAYER IDENTIFICATION', edit: 'EDIT', rank: 'RANK', level: 'LEVEL', experience: 'EXPERIENCE', until_level: 'EXP until next level', ability_matrix: 'ABILITY MATRIX', attributes: 'Attributes', available_points: 'AVAILABLE POINTS', system_record: 'SYSTEM RECORD', current_data: 'Current Data', active_missions: 'Active Missions', acquired_skills: 'Acquired Skills', stored_items: 'Stored Items',
-        equipped_effects: 'EQUIPPED EFFECTS', loadout_summary: 'Loadout Summary', empty: 'EMPTY', no_equipment: 'No equipment is currently registered.', generate_rewards: 'GENERATE 3 REWARD CHOICES', generating_rewards: 'GENERATING REWARDS…', reward_pool_missing: 'This older mission needs a three-item reward pool before it can be claimed.', date: 'DATE', day: 'DAY', year: 'YEAR', time: 'TIME', place: 'PLACE', location: 'LOCATION', position: 'POSITION', temperature: 'TEMPERATURE', weather: 'WEATHER', season: 'SEASON',
+        equipped_effects: 'EQUIPPED EFFECTS', loadout_summary: 'Loadout Summary', empty: 'EMPTY', no_equipment: 'No equipment is currently registered.', generate_rewards: 'GENERATE 3 REWARD CHOICES', generating_rewards: 'GENERATING REWARDS…', reward_pool_missing: 'This older mission needs a three-item reward pool before it can be claimed.', notification_view: 'VIEW DETAILS', notification_remove: 'REMOVE', notification_tap: 'TAP ONCE FOR CONTROLS', notification_compact: 'COMPACT', notification_full: 'FULL', date: 'DATE', day: 'DAY', year: 'YEAR', time: 'TIME', place: 'PLACE', location: 'LOCATION', position: 'POSITION', temperature: 'TEMPERATURE', weather: 'WEATHER', season: 'SEASON',
     },
     th: {
         tab_status: 'สถานะ', tab_missions: 'ภารกิจ', tab_skills: 'สกิล', tab_inventory: 'คลัง', tab_equipment: 'อุปกรณ์', tab_shop: 'ร้านค้าระบบ', tab_scene: 'ฉาก',
@@ -57,7 +60,7 @@ const I18N = {
         authorized_exchange: 'ศูนย์แลกเปลี่ยนที่ได้รับอนุญาต', refill: 'สุ่มไอเทมใหม่', search: 'ค้นหา', shop_empty: 'ไม่มีสินค้าในร้านระบบ',
         player_interface: 'หน้าต่างผู้เล่น', guide: 'คู่มือ', sync: 'ซิงก์คำตอบล่าสุด', pending_actions: 'คำสั่งที่รอดำเนินการ',
         player_identification: 'ข้อมูลประจำตัวผู้เล่น', edit: 'แก้ไข', rank: 'แรงก์', level: 'เลเวล', experience: 'ค่าประสบการณ์', until_level: 'EXP ก่อนถึงเลเวลถัดไป', ability_matrix: 'ตารางความสามารถ', attributes: 'ค่าสถานะ', available_points: 'แต้มที่ใช้ได้', system_record: 'บันทึกระบบ', current_data: 'ข้อมูลปัจจุบัน', active_missions: 'ภารกิจที่ทำอยู่', acquired_skills: 'สกิลที่ได้รับ', stored_items: 'ไอเทมที่เก็บไว้',
-        equipped_effects: 'เอฟเฟกต์อุปกรณ์', loadout_summary: 'สรุปชุดอุปกรณ์', empty: 'ว่าง', no_equipment: 'ยังไม่มีอุปกรณ์ที่สวมใส่', generate_rewards: 'สร้างตัวเลือกรางวัล 3 ชิ้น', generating_rewards: 'กำลังสร้างรางวัล…', reward_pool_missing: 'ภารกิจเก่านี้ต้องสร้างตัวเลือกไอเทมรางวัล 3 ชิ้นก่อนรับรางวัล', date: 'วันที่', day: 'วัน', year: 'ปี', time: 'เวลา', place: 'สถานที่', location: 'ตำแหน่ง', position: 'จุดที่ยืน', temperature: 'อุณหภูมิ', weather: 'สภาพอากาศ', season: 'ฤดูกาล',
+        equipped_effects: 'เอฟเฟกต์อุปกรณ์', loadout_summary: 'สรุปชุดอุปกรณ์', empty: 'ว่าง', no_equipment: 'ยังไม่มีอุปกรณ์ที่สวมใส่', generate_rewards: 'สร้างตัวเลือกรางวัล 3 ชิ้น', generating_rewards: 'กำลังสร้างรางวัล…', reward_pool_missing: 'ภารกิจเก่านี้ต้องสร้างตัวเลือกไอเทมรางวัล 3 ชิ้นก่อนรับรางวัล', notification_view: 'ดูรายละเอียด', notification_remove: 'นำออก', notification_tap: 'แตะหนึ่งครั้งเพื่อเปิดปุ่มควบคุม', notification_compact: 'กะทัดรัด', notification_full: 'เต็ม', date: 'วันที่', day: 'วัน', year: 'ปี', time: 'เวลา', place: 'สถานที่', location: 'ตำแหน่ง', position: 'จุดที่ยืน', temperature: 'อุณหภูมิ', weather: 'สภาพอากาศ', season: 'ฤดูกาล',
     },
 };
 
@@ -100,8 +103,14 @@ let previousFocusedElement = null;
 let activeTab = 'status';
 let transitionTimer = null;
 let islandTimer = null;
+let eventNoticeTimer = null;
 let islandQueue = [];
 let islandBusy = false;
+let eventNoticeQueue = [];
+let eventNoticeCurrent = null;
+let eventNoticeBusy = false;
+let eventNoticeDismissArmed = false;
+let eventNoticeDrag = null;
 let inventoryPage = 1;
 let shopPage = 1;
 let selectedItemId = '';
@@ -143,6 +152,11 @@ function getSettings() {
     settings.glowStrength = number(settings.glowStrength, DEFAULT_SETTINGS.glowStrength, 0, 100);
     for (const key of ['accentColor', 'backgroundColor', 'particleColor']) if (!/^#[0-9a-f]{6}$/i.test(settings[key])) settings[key] = DEFAULT_SETTINGS[key];
     if (!['top-center', 'top-left', 'top-right', 'bottom-center'].includes(settings.notificationPosition)) settings.notificationPosition = DEFAULT_SETTINGS.notificationPosition;
+    if (!['compact', 'full'].includes(settings.notificationMode)) settings.notificationMode = DEFAULT_SETTINGS.notificationMode;
+    for (const key of ['eventNotificationX', 'eventNotificationY']) {
+        if (settings[key] !== null && settings[key] !== undefined && Number.isFinite(Number(settings[key]))) settings[key] = number(settings[key], null, 0, 100);
+        else settings[key] = null;
+    }
     if (!['auto', 'en', 'th'].includes(settings.language)) settings.language = DEFAULT_SETTINGS.language;
     return settings;
 }
@@ -162,7 +176,8 @@ function applyAppearance() {
     root.style.setProperty('--sl-system-glow', String(settings.glowStrength / 100));
     root.style.setProperty('--sl-system-glow-size', `${Math.round(48 * settings.glowStrength / 100)}px`);
     root.style.setProperty('--sl-system-particle-opacity', String(.22 + (settings.glowStrength / 100) * .52));
-    document.getElementById('sl-system-island')?.setAttribute('data-position', settings.notificationPosition);
+    const island = document.getElementById('sl-system-island'); if (island) { island.setAttribute('data-position', settings.notificationPosition); island.setAttribute('data-view', settings.notificationMode); const icon = island.querySelector('[data-sl-island-mode] i'); if (icon) icon.className = `fa-solid ${settings.notificationMode === 'compact' ? 'fa-expand' : 'fa-compress'}`; }
+    positionEventNotice();
 }
 
 function normalizeImage(source = {}) {
@@ -552,19 +567,19 @@ async function syncLatestTurn() {
 
 function buildIsland() {
     if (document.getElementById('sl-system-island')) return;
-    const island = document.createElement('button'); island.id = 'sl-system-island'; island.className = 'sl-system-island'; island.type = 'button'; island.dataset.position = getSettings().notificationPosition;
-    island.innerHTML = '<span class="sl-island-sigil"><i class="fa-solid fa-diamond"></i></span><span class="sl-island-copy"><strong>THE SYSTEM</strong><small>Interface initialized</small></span><span class="sl-island-progress"></span>';
-    island.addEventListener('click', () => {
-        openInterface();
-        const tab = island.dataset.targetTab;
-        if (tab) activateTab(tab);
-        if (island.dataset.targetQuest) showQuestModal(island.dataset.targetQuest);
-        if (island.dataset.targetSkill) showSkillModal(island.dataset.targetSkill);
-    }); document.body.appendChild(island);
+    const island = document.createElement('aside'); island.id = 'sl-system-island'; island.className = 'sl-system-island'; island.dataset.position = getSettings().notificationPosition; island.dataset.view = getSettings().notificationMode; island.setAttribute('aria-live', 'polite');
+    island.innerHTML = '<button class="sl-island-main" type="button" data-sl-island-open><span class="sl-island-sigil"><i class="fa-solid fa-diamond"></i></span><span class="sl-island-copy"><em>THE SYSTEM</em><strong>SYSTEM ONLINE</strong><small>Interface initialized</small></span></button><button class="sl-island-mode" type="button" data-sl-island-mode aria-label="Toggle notification size"><i class="fa-solid fa-expand"></i></button><span class="sl-island-progress"></span>';
+    island.querySelector('[data-sl-island-open]')?.addEventListener('click', () => navigateNotice({ tab: island.dataset.targetTab, questId: island.dataset.targetQuest, skillId: island.dataset.targetSkill }));
+    island.querySelector('[data-sl-island-mode]')?.addEventListener('click', event => { event.stopPropagation(); const settings = getSettings(); settings.notificationMode = settings.notificationMode === 'compact' ? 'full' : 'compact'; saveSettings(); applyAppearance(); });
+    document.body.appendChild(island);
 }
 
+const EVENT_NOTICE_MODES = new Set(['level', 'reward', 'quest', 'skill', 'title', 'item', 'equipment', 'shop', 'danger', 'heal', 'mana', 'stat', 'scene']);
+
 function systemNotice(mode, title, detail = '', destination = {}) {
+    if (destination?.event !== false && (destination?.event || EVENT_NOTICE_MODES.has(mode))) return eventNotice(mode, title, detail, destination);
     islandQueue.push({ mode, title: text(title, 'System update', 120), detail: text(detail, '', 180), destination });
+    islandQueue = islandQueue.slice(-12);
     playNextNotice();
 }
 
@@ -581,29 +596,95 @@ function playNextNotice() {
     clearTimeout(islandTimer); islandTimer = setTimeout(() => { islandBusy = false; playNextNotice(); }, item.mode === 'working' ? 1200 : 2600);
 }
 
+function noticeIcon(mode) {
+    return ({ level: 'fa-arrow-up', reward: 'fa-gift', quest: 'fa-scroll', skill: 'fa-bolt', title: 'fa-crown', item: 'fa-box-open', equipment: 'fa-shield-halved', shop: 'fa-cart-shopping', danger: 'fa-triangle-exclamation', heal: 'fa-heart-pulse', mana: 'fa-droplet', stat: 'fa-chart-line', scene: 'fa-location-crosshairs' })[mode] || 'fa-exclamation';
+}
+
+function noticeLabel(mode) {
+    return ({ level: 'LEVEL ALERT', reward: 'REWARD ALERT', quest: 'MISSION ALERT', skill: 'SKILL ALERT', title: 'TITLE ALERT', item: 'ITEM ALERT', equipment: 'EQUIPMENT ALERT', shop: 'SHOP ALERT', danger: 'DANGER ALERT', heal: 'RECOVERY ALERT', mana: 'MANA ALERT', stat: 'STATUS ALERT', scene: 'SCENE ALERT' })[mode] || 'SYSTEM ALERT';
+}
+
+function navigateNotice(destination = {}) {
+    openInterface();
+    if (destination.tab) activateTab(destination.tab);
+    if (destination.questId) showQuestModal(destination.questId);
+    if (destination.skillId) showSkillModal(destination.skillId);
+    if (destination.itemId) showItemModal(destination.itemId);
+    if (destination.shadowId) showShadowModal(destination.shadowId);
+}
+
+function buildEventNotice() {
+    if (document.getElementById('sl-system-event-notice')) return;
+    const panel = document.createElement('aside'); panel.id = 'sl-system-event-notice'; panel.className = 'sl-system-event-notice'; panel.setAttribute('aria-live', 'assertive'); panel.setAttribute('aria-atomic', 'true');
+    panel.innerHTML = `<span class="sl-event-corner corner-a"></span><span class="sl-event-corner corner-b"></span><span class="sl-event-corner corner-c"></span><span class="sl-event-corner corner-d"></span><header data-sl-event-drag><span class="sl-event-brand"><i class="fa-solid fa-diamond"></i> THE SYSTEM</span><span class="sl-event-queue">01</span><i class="fa-solid fa-grip-lines sl-event-drag-icon"></i></header><button class="sl-event-body" type="button" data-sl-event-arm><span class="sl-event-alarm"><i class="fa-solid fa-exclamation"></i><b data-sl-event-label>SYSTEM ALERT</b></span><strong data-sl-event-title>SYSTEM UPDATED</strong><small data-sl-event-detail>The System has detected a confirmed change.</small><em>${t('notification_tap')}</em></button><footer><button type="button" data-sl-event-open><i class="fa-solid fa-arrow-up-right-from-square"></i> ${t('notification_view')}</button><button type="button" data-sl-event-dismiss><i class="fa-solid fa-xmark"></i> ${t('notification_remove')}</button></footer><span class="sl-event-scan"></span>`;
+    panel.querySelector('[data-sl-event-arm]')?.addEventListener('click', () => { eventNoticeDismissArmed = !eventNoticeDismissArmed; panel.classList.toggle('is-armed', eventNoticeDismissArmed); });
+    panel.querySelector('[data-sl-event-open]')?.addEventListener('click', () => { if (eventNoticeCurrent?.destination) navigateNotice(eventNoticeCurrent.destination); eventNoticeDismissArmed = false; panel.classList.remove('is-armed'); });
+    panel.querySelector('[data-sl-event-dismiss]')?.addEventListener('click', dismissEventNotice);
+    document.body.appendChild(panel); bindEventNoticeDrag(panel); positionEventNotice();
+}
+
+function eventNotice(mode, title, detail = '', destination = {}) {
+    eventNoticeQueue.push({ id: uid('notice'), mode, title: text(title, 'System update', 120), detail: text(detail, '', 300), destination });
+    eventNoticeQueue = eventNoticeQueue.slice(-20); playNextEventNotice();
+}
+
+function playNextEventNotice() {
+    if (eventNoticeBusy || !eventNoticeQueue.length) return;
+    buildEventNotice(); const panel = document.getElementById('sl-system-event-notice'); if (!panel) return;
+    eventNoticeBusy = true; eventNoticeCurrent = eventNoticeQueue.shift(); eventNoticeDismissArmed = false;
+    panel.dataset.mode = eventNoticeCurrent.mode; panel.classList.remove('is-armed', 'is-leaving');
+    panel.querySelector('[data-sl-event-label]').textContent = noticeLabel(eventNoticeCurrent.mode);
+    panel.querySelector('[data-sl-event-title]').textContent = eventNoticeCurrent.title;
+    panel.querySelector('[data-sl-event-detail]').textContent = eventNoticeCurrent.detail || 'The System has detected a confirmed change.';
+    const icon = panel.querySelector('.sl-event-alarm > i'); if (icon) icon.className = `fa-solid ${noticeIcon(eventNoticeCurrent.mode)}`;
+    const interactive = Boolean(eventNoticeCurrent.destination?.tab || eventNoticeCurrent.destination?.questId || eventNoticeCurrent.destination?.skillId || eventNoticeCurrent.destination?.itemId || eventNoticeCurrent.destination?.shadowId);
+    panel.classList.toggle('is-interactive', interactive); panel.querySelector('[data-sl-event-open]').hidden = !interactive;
+    panel.querySelector('.sl-event-queue').textContent = String(eventNoticeQueue.length + 1).padStart(2, '0');
+    panel.classList.toggle('is-visible', isInterfaceOpen()); positionEventNotice();
+}
+
+function dismissEventNotice() {
+    const panel = document.getElementById('sl-system-event-notice'); if (!panel || !eventNoticeCurrent) return;
+    panel.classList.add('is-leaving'); clearTimeout(eventNoticeTimer); eventNoticeTimer = setTimeout(() => { panel.classList.remove('is-visible', 'is-leaving', 'is-armed'); eventNoticeBusy = false; eventNoticeCurrent = null; eventNoticeDismissArmed = false; playNextEventNotice(); }, 240);
+}
+
+function positionEventNotice() {
+    const panel = document.getElementById('sl-system-event-notice'); if (!panel) return; const settings = getSettings();
+    if (settings.eventNotificationX === null || settings.eventNotificationY === null) { panel.style.left = ''; panel.style.top = ''; panel.style.right = ''; panel.style.bottom = ''; panel.style.transform = ''; return; }
+    requestAnimationFrame(() => { const rect = panel.getBoundingClientRect(); const maxX = Math.max(0, window.innerWidth - rect.width); const maxY = Math.max(0, window.innerHeight - rect.height); panel.style.left = `${Math.round(maxX * settings.eventNotificationX / 100)}px`; panel.style.top = `${Math.round(maxY * settings.eventNotificationY / 100)}px`; panel.style.right = 'auto'; panel.style.bottom = 'auto'; panel.style.transform = 'none'; });
+}
+
+function bindEventNoticeDrag(panel) {
+    const handle = panel.querySelector('[data-sl-event-drag]'); if (!handle) return;
+    handle.addEventListener('pointerdown', event => { if (event.button !== undefined && event.button !== 0) return; const rect = panel.getBoundingClientRect(); eventNoticeDrag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, moved: false }; handle.setPointerCapture?.(event.pointerId); panel.classList.add('is-dragging'); event.preventDefault(); });
+    handle.addEventListener('pointermove', event => { if (!eventNoticeDrag || eventNoticeDrag.id !== event.pointerId) return; const dx = event.clientX - eventNoticeDrag.x; const dy = event.clientY - eventNoticeDrag.y; if (Math.hypot(dx, dy) > 4) eventNoticeDrag.moved = true; const rect = panel.getBoundingClientRect(); const left = Math.min(Math.max(0, eventNoticeDrag.left + dx), Math.max(0, window.innerWidth - rect.width)); const top = Math.min(Math.max(0, eventNoticeDrag.top + dy), Math.max(0, window.innerHeight - rect.height)); panel.style.left = `${left}px`; panel.style.top = `${top}px`; panel.style.right = 'auto'; panel.style.bottom = 'auto'; panel.style.transform = 'none'; });
+    const release = event => { if (!eventNoticeDrag || eventNoticeDrag.id !== event.pointerId) return; const rect = panel.getBoundingClientRect(); const maxX = Math.max(1, window.innerWidth - rect.width); const maxY = Math.max(1, window.innerHeight - rect.height); const settings = getSettings(); settings.eventNotificationX = number(rect.left / maxX * 100, 50, 0, 100); settings.eventNotificationY = number(rect.top / maxY * 100, 20, 0, 100); saveSettings(); panel.classList.remove('is-dragging'); eventNoticeDrag = null; };
+    handle.addEventListener('pointerup', release); handle.addEventListener('pointercancel', release);
+}
+
 function announceChanges(before, after, source) {
     const notices = [];
-    if (after.player.level > before.player.level) notices.push(['level', `LEVEL UP — ${after.player.level}`, `Stat points available: ${after.player.statPoints}`]);
-    if (after.player.hp !== before.player.hp) notices.push([after.player.hp < before.player.hp ? 'danger' : 'heal', `HP ${after.player.hp < before.player.hp ? 'DECREASED' : 'RECOVERED'}`, `${before.player.hp} → ${after.player.hp}`]);
-    if (after.player.mp !== before.player.mp) notices.push([after.player.mp < before.player.mp ? 'mana' : 'heal', `MP ${after.player.mp < before.player.mp ? 'CONSUMED' : 'RECOVERED'}`, `${before.player.mp} → ${after.player.mp}`]);
-    if (after.player.statPoints > before.player.statPoints) notices.push(['reward', 'STAT POINTS EARNED', `+${after.player.statPoints - before.player.statPoints}`]);
-    after.player.titles.filter(value => !before.player.titles.includes(value)).forEach(value => notices.push(['title', 'TITLE ACQUIRED', value]));
+    if (after.player.level > before.player.level) notices.push(['level', 'YOU HAVE LEVELED UP!', `LEVEL ${after.player.level} · Stat points available: ${after.player.statPoints}`, { tab: 'status' }]);
+    if (after.player.hp !== before.player.hp) notices.push([after.player.hp < before.player.hp ? 'danger' : 'heal', `HP ${after.player.hp < before.player.hp ? 'DECREASED' : 'RECOVERED'}`, `${before.player.hp} → ${after.player.hp}`, { tab: 'status' }]);
+    if (after.player.mp !== before.player.mp) notices.push([after.player.mp < before.player.mp ? 'mana' : 'heal', `MP ${after.player.mp < before.player.mp ? 'CONSUMED' : 'RECOVERED'}`, `${before.player.mp} → ${after.player.mp}`, { tab: 'status' }]);
+    if (after.player.statPoints > before.player.statPoints) notices.push(['reward', 'STAT POINTS EARNED!', `+${after.player.statPoints - before.player.statPoints}`, { tab: 'status' }]);
+    after.player.titles.filter(value => !before.player.titles.includes(value)).forEach(value => notices.push(['title', 'TITLE ACQUIRED!', value, { tab: 'status' }]));
     after.skills.filter(item => !before.skills.some(old => old.id === item.id)).forEach(item => {
         notices.push(['skill', 'SKILL ACQUIRED', `${item.name} · Rank ${item.rank}`, { tab: 'skills', skillId: item.id }]);
         if (item.activationRequired && !item.activationWord) notices.push(['warning', 'ACTIVATION WORD REQUIRED', `Tap to configure ${item.name}`, { tab: 'skills', skillId: item.id }]);
     });
     after.skills.forEach(item => { const old = before.skills.find(entry => entry.id === item.id); if (old && item.uses > old.uses) notices.push(['skill', 'SKILL ACTIVATED', `${item.name} · Mastery ${item.mastery}/${item.masteryRequired}`, { tab: 'skills', skillId: item.id }]); });
-    after.inventory.forEach(item => { const old = before.inventory.find(entry => entry.id === item.id); if (!old) notices.push(['item', 'ITEM ACQUIRED', `${item.name} ×${item.quantity}`]); else if (item.quantity < old.quantity) notices.push(['item', 'ITEM CONSUMED', `${item.name} ×${old.quantity - item.quantity}`]); });
-    Object.keys(after.player.stats).forEach(stat => { if (after.player.stats[stat] > before.player.stats[stat]) notices.push(['stat', `${stat.toUpperCase()} INCREASED`, `${before.player.stats[stat]} → ${after.player.stats[stat]}`]); });
-    if (after.currency.amount !== before.currency.amount) notices.push([after.currency.amount > before.currency.amount ? 'reward' : 'shop', `SYSTEM CREDIT ${after.currency.amount > before.currency.amount ? 'ACQUIRED' : 'SPENT'}`, `${before.currency.amount.toLocaleString()} → ${after.currency.amount.toLocaleString()} ${after.currency.symbol}`]);
+    after.inventory.forEach(item => { const old = before.inventory.find(entry => entry.id === item.id); if (!old) notices.push(['item', 'ITEM ACQUIRED!', `${item.name} ×${item.quantity}`, { tab: 'inventory', itemId: item.id }]); else if (item.quantity < old.quantity) notices.push(['item', 'ITEM CONSUMED', `${item.name} ×${old.quantity - item.quantity}`, { tab: 'inventory', itemId: item.id }]); });
+    Object.keys(after.player.stats).forEach(stat => { if (after.player.stats[stat] > before.player.stats[stat]) notices.push(['stat', `${stat.toUpperCase()} INCREASED!`, `${before.player.stats[stat]} → ${after.player.stats[stat]}`, { tab: 'status' }]); });
+    if (after.currency.amount !== before.currency.amount) notices.push([after.currency.amount > before.currency.amount ? 'reward' : 'shop', `SYSTEM CREDIT ${after.currency.amount > before.currency.amount ? 'ACQUIRED' : 'SPENT'}`, `${before.currency.amount.toLocaleString()} → ${after.currency.amount.toLocaleString()} ${after.currency.symbol}`, { tab: 'shop' }]);
     after.quests.forEach(quest => {
         const old = before.quests.find(entry => entry.id === quest.id);
         if (quest.penaltyApplied && !old?.penaltyApplied) notices.push(['danger', 'DAILY QUEST PENALTY', `${quest.title} · ${quest.penalty.description}`, { tab: 'quest', questId: quest.id }]);
-        if (String(quest.status).toLowerCase() === 'completed' && String(old?.status).toLowerCase() !== 'completed') notices.push(['reward', 'MISSION COMPLETE — REWARD READY', `Tap to claim: ${quest.title}`, { tab: 'quest', questId: quest.id }]);
+        if (String(quest.status).toLowerCase() === 'completed' && String(old?.status).toLowerCase() !== 'completed') notices.push(['reward', 'MISSION COMPLETE!', `Reward ready · ${quest.title}`, { tab: 'quest', questId: quest.id }]);
         else if (old && JSON.stringify(quest.objectives) !== JSON.stringify(old.objectives)) notices.push(['quest', 'MISSION PROGRESS UPDATED', quest.title, { tab: 'quest', questId: quest.id }]);
     });
-    after.shadowArmy.filter(shadow => !before.shadowArmy.some(old => old.id === shadow.id)).forEach(shadow => notices.push(['skill', 'SHADOW EXTRACTED', `${shadow.name} · ${shadow.rank}-Rank ${shadow.class}`, { tab: 'skills' }]));
-    if (JSON.stringify(after.scene) !== JSON.stringify(before.scene)) notices.push(['scene', 'SCENE UPDATED', `${after.scene.place} · ${after.scene.time}`]);
+    after.shadowArmy.filter(shadow => !before.shadowArmy.some(old => old.id === shadow.id)).forEach(shadow => notices.push(['skill', 'SHADOW EXTRACTED!', `${shadow.name} · ${shadow.rank}-Rank ${shadow.class}`, { tab: 'skills', shadowId: shadow.id }]));
+    if (JSON.stringify(after.scene) !== JSON.stringify(before.scene)) notices.push(['scene', 'SCENE UPDATED', `${after.scene.place} · ${after.scene.time}`, { tab: 'scene' }]);
     if (!notices.length && source === 'assistant-patch') notices.push(['sync', 'SYSTEM UPDATED', 'State synchronized with the latest reply']);
     notices.slice(0, 6).forEach(item => systemNotice(...item));
 }
@@ -728,11 +809,11 @@ async function acceptSystem() {
 function declineSystem() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay) return; overlay.classList.add('is-declining'); clearTimeout(transitionTimer); transitionTimer = setTimeout(() => { overlay.classList.remove('is-declining'); closeInterface(); }, 420); }
 
 function openInterface() {
-    try { buildInterface(); const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel'); if (!overlay || !panel) throw new Error('Interface panel unavailable.'); previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); document.getElementById('sl-system-island')?.classList.add('is-visible'); const state = getState(); showPhase(state.accepted ? 'main' : 'notification'); requestAnimationFrame(() => panel.focus()); }
+    try { buildInterface(); const overlay = document.getElementById('sl-system-overlay'); const panel = document.getElementById('sl-system-panel'); if (!overlay || !panel) throw new Error('Interface panel unavailable.'); previousFocusedElement = document.activeElement; clearTimeout(transitionTimer); overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); document.body.classList.add('sl-system-open'); document.getElementById('sl-system-island')?.classList.add('is-visible'); if (eventNoticeCurrent) document.getElementById('sl-system-event-notice')?.classList.add('is-visible'); positionEventNotice(); const state = getState(); showPhase(state.accepted ? 'main' : 'notification'); requestAnimationFrame(() => panel.focus()); }
     catch (error) { console.error('[The System] Could not open.', error); systemNotice('error', 'The System could not open', error.message); }
 }
 
-function closeInterface() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay?.classList.contains('is-open')) return; closeSubmodals(); clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open'); document.getElementById('sl-system-island')?.classList.remove('is-visible'); if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true }); }
+function closeInterface() { const overlay = document.getElementById('sl-system-overlay'); if (!overlay?.classList.contains('is-open')) return; closeSubmodals(); clearTimeout(transitionTimer); overlay.classList.remove('is-open', 'is-declining'); overlay.setAttribute('aria-hidden', 'true'); document.body.classList.remove('sl-system-open'); document.getElementById('sl-system-island')?.classList.remove('is-visible'); document.getElementById('sl-system-event-notice')?.classList.remove('is-visible'); if (previousFocusedElement instanceof HTMLElement) previousFocusedElement.focus({ preventScroll: true }); }
 
 async function upgradeStat(stat) { const state = getState(); if (!Object.hasOwn(state.player.stats, stat) || state.player.statPoints < 1) return; state.player.stats[stat] += 1; state.player.statPoints -= 1; queueAction(state, 'upgrade-stat', `${stat} increased to ${state.player.stats[stat]}`, { stat, value: state.player.stats[stat] }); await persistState(state, 'ui-stat-upgrade'); }
 
@@ -957,9 +1038,16 @@ function observeWandMenu() { if (createWandLauncher() || menuObserver) return; m
 function bindCheckbox(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement)) return; control.checked = Boolean(getSettings()[key]); control.onchange = () => { getSettings()[key] = control.checked; saveSettings(); callback?.(); }; }
 function bindSettingControl(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return; control.value = String(getSettings()[key]); const update = () => { getSettings()[key] = control.type === 'range' ? Number(control.value) : control.value; saveSettings(); callback?.(); }; if (control.type === 'range' || control.type === 'color') control.oninput = update; else control.onchange = update; }
 
-function rebuildLocalizedInterface() { const wasOpen = isInterfaceOpen(); document.getElementById('sl-system-overlay')?.remove(); buildInterface(); if (wasOpen) openInterface(); }
+function rebuildLocalizedInterface() {
+    const wasOpen = isInterfaceOpen(); const currentEvent = eventNoticeCurrent;
+    document.getElementById('sl-system-overlay')?.remove(); document.getElementById('sl-system-island')?.remove(); document.getElementById('sl-system-event-notice')?.remove();
+    buildIsland(); if (currentEvent) { eventNoticeBusy = false; eventNoticeCurrent = null; eventNoticeQueue.unshift(currentEvent); playNextEventNotice(); }
+    buildInterface(); if (wasOpen) openInterface();
+}
 
-function bindSettingsDrawer() { bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindCheckbox('sl-system-smart-fallback', 'smartFallback'); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-background', 'backgroundColor', applyAppearance); bindSettingControl('sl-system-particle', 'particleColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance); bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance); bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface); const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`; const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; applyAppearance(); }
+function resetEventNoticePosition() { const settings = getSettings(); settings.eventNotificationX = null; settings.eventNotificationY = null; saveSettings(); positionEventNotice(); }
+
+function bindSettingsDrawer() { bindCheckbox('sl-system-show-launcher', 'showWandLauncher', syncLauncherVisibility); bindCheckbox('sl-system-auto-track', 'autoTrack', updatePrompt); bindCheckbox('sl-system-inject-state', 'injectState', updatePrompt); bindCheckbox('sl-system-smart-fallback', 'smartFallback'); bindSettingControl('sl-system-accent', 'accentColor', applyAppearance); bindSettingControl('sl-system-background', 'backgroundColor', applyAppearance); bindSettingControl('sl-system-particle', 'particleColor', applyAppearance); bindSettingControl('sl-system-glass', 'glassOpacity', applyAppearance); bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance); bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance); bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance); bindSettingControl('sl-system-language', 'language', rebuildLocalizedInterface); const version = document.getElementById('sl-system-current-version'); if (version) version.textContent = `v${UI_VERSION}`; const open = document.getElementById('sl-system-open-from-settings'); const sync = document.getElementById('sl-system-sync-from-settings'); const reset = document.getElementById('sl-system-reset-event-position'); if (open) open.onclick = openInterface; if (sync) sync.onclick = syncLatestTurn; if (reset) reset.onclick = resetEventNoticePosition; applyAppearance(); }
 
 async function addSettingsDrawer() { if (document.getElementById('sl-system-settings')) { bindSettingsDrawer(); return true; } const container = document.getElementById('extensions_settings2'); if (!container) return false; const rendered = await context().renderExtensionTemplateAsync?.(EXTENSION_FOLDER, 'settings'); if (!rendered) return false; container.insertAdjacentHTML('beforeend', rendered); bindSettingsDrawer(); return true; }
 function observeSettingsDrawer() { if (settingsObserver) return; settingsObserver = new MutationObserver(async () => { try { if (await addSettingsDrawer()) { settingsObserver.disconnect(); settingsObserver = null; } } catch (error) { console.error('[The System] Settings drawer failed.', error); } }); settingsObserver.observe(document.body, { childList: true, subtree: true }); }
@@ -979,7 +1067,7 @@ function bindChatEvents() {
 
 async function initialize() {
     if (initialized) return; initialized = true;
-    try { getSettings(); applyAppearance(); buildIsland(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); const state = getState(); if (state.accepted && context().getCurrentChatId?.()) systemNotice('system', 'SYSTEM ONLINE', `${state.player.name} · Level ${state.player.level}`); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else closeInterface(); } }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
+    try { getSettings(); applyAppearance(); buildIsland(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); updatePrompt(); const state = getState(); if (state.accepted && context().getCurrentChatId?.()) systemNotice('system', 'SYSTEM ONLINE', `${state.player.name} · Level ${state.player.level}`); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else closeInterface(); } }); window.addEventListener('resize', positionEventNotice, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
     catch (error) { initialized = false; console.error('[The System] Failed to initialize.', error); }
 }
 

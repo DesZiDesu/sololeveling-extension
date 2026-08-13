@@ -4,14 +4,15 @@ The System is a Solo Leveling-inspired SillyTavern extension shell for a persist
 
 ## Current build
 
-Version 0.6.2 adds automatic per-response System checks, UI-only notifications, usable/equippable shop items with reversible equipment stat bonuses, guaranteed quest EXP with one-of-three item rewards, legacy reward-pool repair, and English/Thai interface support.
+Version 0.7.0 introduces a two-layer notification system: a fixed sharp-corner Dynamic Island with compact/full modes, plus a detailed draggable milestone alert window for levels, missions, rewards, skills, items, equipment, and other confirmed events.
 
 - Per-chat acceptance, avatar crop, inventory, equipment, shop, stats, currency, and action batches.
 - Horizontal Status, Missions, Skills, Inventory, Equipment, System Shop, and Scene navigation.
 - Profile, item, and skill icon editors with position, zoom, uploads, and skill SVG presets.
 - Paginated item storage, item detail sheets, consumables, equippable gear, and equipment slots.
 - AI-powered shop refill and item search with support for current and legacy SillyTavern quiet-generation signatures and tolerant JSON parsing.
-- Persistent, angular System-interface notifications for level, HP, MP, skills, titles, items, mission progress, rewards, and synchronization.
+- A fixed-position, sharp rectangular Dynamic Island with compact/full display modes for routine monitoring and synchronization.
+- A separate draggable milestone alert window with animated framing, event themes, queued alerts, tap-to-reveal controls, optional deep links, and manual removal.
 - Animated particles, responsive selection motion, and a subtly animated profile frame.
 - Independent main, background, and particle colors with compact circular color controls.
 - A dedicated Scene tab for date, day, year, time, place, location, specific current position, temperature, weather, and season.
