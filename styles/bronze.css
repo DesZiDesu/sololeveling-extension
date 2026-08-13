@@ -1217,6 +1217,63 @@
 .sl-edge-energy i:nth-child(3) { top: 77px; left: 104px; animation-delay: -2.2s; }
 .sl-edge-scan { background: linear-gradient(transparent,var(--sl-system-accent),transparent); }
 
+/* Keep queued interface actions in the empty header corner, above the animated shell. */
+.sl-pending-actions {
+    position: static;
+    z-index: 6;
+    isolation: isolate;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 36px;
+    margin-right: auto;
+    padding: 5px 11px 5px 7px;
+    overflow: hidden;
+    border: 1px solid rgba(213,167,92,.44);
+    border-left: 2px solid var(--sl-warning);
+    background:
+        linear-gradient(90deg,rgba(213,167,92,.16),transparent 72%),
+        rgb(var(--sl-system-background-rgb));
+    box-shadow:
+        0 0 18px rgba(213,167,92,.13),
+        inset 0 0 0 1px rgba(var(--sl-system-accent-rgb),.05);
+    color: var(--sl-ink);
+    line-height: 1;
+    text-shadow: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.sl-pending-actions[data-active="true"] { display: inline-flex; animation: sl-pending-enter .28s ease-out both; }
+.sl-pending-actions > i {
+    display: grid;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: 1px solid rgba(213,167,92,.38);
+    background: rgba(213,167,92,.09);
+    color: var(--sl-warning);
+    font-size: 8px;
+    box-shadow: inset 0 0 10px rgba(213,167,92,.08);
+}
+.sl-pending-actions > span { display: grid; min-width: 0; gap: 2px; }
+.sl-pending-actions b {
+    color: var(--sl-warning);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .1em;
+}
+.sl-pending-actions small {
+    overflow: hidden;
+    color: var(--sl-ink-soft);
+    font-size: 6px;
+    font-weight: 750;
+    letter-spacing: .13em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sl-pending-actions[data-active="true"] + .sl-system-main-state { margin-right: 0; }
+
 @keyframes sl-void-impulse {
     0% { transform: translate3d(-2%,-1%,0) scale(.92); opacity: .28; }
     55% { transform: translate3d(3%,2%,0) scale(1.08); opacity: .72; }
@@ -1227,11 +1284,24 @@
 @keyframes sl-edge-pulse { 50% { transform: scale(.86); border-color: rgba(var(--sl-system-accent-rgb),.68); } }
 @keyframes sl-edge-signal { 0%,100% { transform: translateY(-44px); opacity: 0; } 50% { opacity: .75; } 100% { transform: translateY(44px); opacity: 0; } }
 @keyframes sl-edge-energy { from { transform: translateX(-110px); opacity: 0; } 25%,70% { opacity: .7; } to { transform: translateX(270px); opacity: 0; } }
+@keyframes sl-pending-enter { from { transform: translateX(-8px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 @media (max-width: 720px) {
     .sl-system-overlay:not([data-layout="desktop"]) .sl-system-main { grid-template-rows: 50px 45px minmax(0,1fr); }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-system-main-header { padding: max(6px,env(safe-area-inset-top)) 7px 5px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-system-main-state { font-size: 6px; letter-spacing: .1em; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-pending-actions {
+        position: static;
+        top: auto;
+        right: auto;
+        max-width: calc(100% - 128px);
+        min-height: 36px;
+        margin-right: auto;
+        padding-right: 8px;
+    }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-pending-actions[data-active="true"] ~ .sl-system-main-state { display: none; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-pending-actions > i { flex-basis: 22px; width: 22px; height: 22px; }
+    .sl-system-overlay:not([data-layout="desktop"]) .sl-pending-actions small { font-size: 5.5px; letter-spacing: .09em; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-header-tools button,
     .sl-system-overlay:not([data-layout="desktop"]) .sl-system-close { width: 36px; height: 36px; }
     .sl-system-overlay:not([data-layout="desktop"]) .sl-system-nav { touch-action: pan-x; }
@@ -1265,4 +1335,5 @@
     .sl-edge-handle::before,
     .sl-edge-handle::after,
     .sl-edge-energy i { animation: none !important; }
+    .sl-pending-actions[data-active="true"] { animation: none; }
 }

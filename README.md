@@ -4,7 +4,7 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.2.0 introduces a configurable holographic void shell inspired by Solo Leveling's dark, electric-blue System language. The enclosing colored outline and bottom toolbar are gone, navigation is locked to horizontal touch movement, and primary controls now live together in the top-right header.
+Version 1.2.1 anchors pending actions in the empty top-left header area as an opaque, high-contrast status badge, keeping queued actions readable above the animated background on mobile and PC. It builds on the configurable holographic void shell introduced in v1.2.0.
 
 - Background style can be Animated Void, Static Dark, or Transparent Glass. Interface, background, and particle colors remain independently configurable.
 - The side launcher is rebuilt as a compact angular holographic access rail with energy traces instead of the previous half-circle/orbit panel.
@@ -52,7 +52,7 @@ Version 1.2.0 introduces a configurable holographic void shell inspired by Solo 
 
 ## Live preview
 
-Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.2.0 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.2.1 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
 
 ## Installation
 
@@ -62,4 +62,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.2.0.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.2.1.

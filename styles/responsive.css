@@ -114,7 +114,7 @@
 @media (max-width: 520px) {
     .sl-system-main-brand .sl-system-eyebrow { max-width: 102px; }
     .sl-system-main-brand h2 { letter-spacing: .1em; }
-    .sl-pending-actions { position: absolute; top: 68px; right: 8px; z-index: 8; }
+    .sl-pending-actions { position: static; max-width: calc(100% - 128px); margin-right: auto; z-index: 8; }
     .sl-header-tools button:first-child { display: none; }
     .sl-module-heading { align-items: center; }
     .sl-module-heading h3 { font-size: 28px; }
