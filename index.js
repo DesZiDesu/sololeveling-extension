@@ -4,7 +4,7 @@ const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
 const METADATA_KEY = 'solo_leveling_system_state';
 const PROMPT_KEY = 'solo_leveling_system_roleplay_state';
-const UI_VERSION = '1.3.1';
+const UI_VERSION = '1.3.2';
 const PAGE_SIZE = 8;
 const PATCH_PATTERN = /<!--\s*solo_system_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 
@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     glowStrength: 22,
     notificationPosition: 'top-center',
     notificationMode: 'compact',
+    notificationDismissSeconds: 10,
     sidebarPosition: 'right',
     sidebarEnabled: true,
     sidebarMode: 'edge',
@@ -178,6 +179,7 @@ function getSettings() {
     if (!hadSidebarMode) settings.sidebarMode = settings.sidebarEnabled === false ? 'off' : 'edge';
     settings.glassOpacity = number(settings.glassOpacity, DEFAULT_SETTINGS.glassOpacity, 55, 98);
     settings.glowStrength = number(settings.glowStrength, DEFAULT_SETTINGS.glowStrength, 0, 100);
+    settings.notificationDismissSeconds = number(settings.notificationDismissSeconds, DEFAULT_SETTINGS.notificationDismissSeconds, 0, 120);
     for (const key of ['accentColor', 'backgroundColor', 'particleColor']) if (!/^#[0-9a-f]{6}$/i.test(settings[key])) settings[key] = DEFAULT_SETTINGS[key];
     if (!['top-center', 'top-left', 'top-right', 'bottom-center'].includes(settings.notificationPosition)) settings.notificationPosition = DEFAULT_SETTINGS.notificationPosition;
     if (!['compact', 'full'].includes(settings.notificationMode)) settings.notificationMode = DEFAULT_SETTINGS.notificationMode;
@@ -194,7 +196,7 @@ function getSettings() {
     return settings;
 }
 
-function saveSettings() { context().saveSettingsDebounced?.(); }
+function saveSettings() { context().saveSettingsDebounced?.(); updatePrompt(); }
 
 function applyAppearance() {
     const settings = getSettings();
@@ -631,7 +633,39 @@ function patchInstructions() {
     ].join('\n');
 }
 
-function buildStatePrompt(state = getState()) { return `<solo_leveling_system_state>\nPer-chat canonical System state.\n${JSON.stringify(stateForPrompt(state))}\n${patchInstructions()}\n</solo_leveling_system_state>`; }
+function uiSettingsForPrompt(settings = getSettings()) {
+    return {
+        appearance: {
+            accentColor: settings.accentColor,
+            backgroundColor: settings.backgroundColor,
+            particleColor: settings.particleColor,
+            backgroundMode: settings.backgroundMode,
+            glassOpacity: settings.glassOpacity,
+            glowStrength: settings.glowStrength,
+        },
+        interface: {
+            layoutMode: settings.layoutMode,
+            sidebarMode: settings.sidebarMode,
+            sidebarPosition: settings.sidebarPosition,
+            language: settings.language,
+        },
+        notifications: {
+            position: settings.notificationPosition,
+            mode: settings.notificationMode,
+            autoDismissSeconds: settings.notificationDismissSeconds,
+        },
+    };
+}
+
+function buildStatePrompt(state = getState()) { return `<solo_leveling_system_state>
+Per-chat canonical System state.
+${JSON.stringify(stateForPrompt(state))}
+<solo_leveling_ui_state>
+The following UI settings are canonical choices already made by the user. The main chat knows them and may acknowledge them when relevant; do not treat them as pending actions.
+${JSON.stringify(uiSettingsForPrompt())}
+</solo_leveling_ui_state>
+${patchInstructions()}
+</solo_leveling_system_state>`; }
 
 function updatePrompt(state = getState()) {
     const currentContext = context(); if (typeof currentContext.setExtensionPrompt !== 'function') return;
@@ -919,6 +953,9 @@ function playNextEventNotice() {
     panel.classList.toggle('is-interactive', interactive); panel.querySelector('[data-sl-event-open]').hidden = !interactive;
     panel.querySelector('.sl-event-queue').textContent = String(eventNoticeQueue.length + 1).padStart(2, '0');
     panel.classList.toggle('is-visible', shouldShowNotifications()); positionEventNotice();
+    clearTimeout(eventNoticeTimer); eventNoticeTimer = null;
+    const dismissSeconds = getSettings().notificationDismissSeconds;
+    if (dismissSeconds > 0) eventNoticeTimer = setTimeout(dismissEventNotice, dismissSeconds * 1000);
 }
 
 function dismissEventNotice() {
@@ -1426,7 +1463,7 @@ function syncLauncherVisibility() { const launcher = document.getElementById('sl
 function createWandLauncher() { if (document.getElementById('sl-system-wand-launcher')) return true; const menu = document.getElementById('extensionsMenu'); if (!menu) return false; const launcher = document.createElement('div'); launcher.id = 'sl-system-wand-launcher'; launcher.className = 'list-group-item flex-container flexGap5 interactable'; launcher.tabIndex = 0; launcher.setAttribute('role', 'button'); launcher.title = `Open The System v${UI_VERSION}`; launcher.innerHTML = '<i class="fa-solid fa-diamond"></i><span>The System</span>'; launcher.addEventListener('click', launchFromEvent); launcher.addEventListener('keydown', launchFromEvent); menu.appendChild(launcher); syncLauncherVisibility(); return true; }
 function observeWandMenu() { if (createWandLauncher() || menuObserver) return; menuObserver = new MutationObserver(() => { if (createWandLauncher()) { menuObserver.disconnect(); menuObserver = null; } }); menuObserver.observe(document.body, { childList: true, subtree: true }); }
 function bindCheckbox(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement)) return; control.checked = Boolean(getSettings()[key]); control.onchange = () => { getSettings()[key] = control.checked; saveSettings(); callback?.(); }; }
-function bindSettingControl(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return; control.value = String(getSettings()[key]); const update = () => { getSettings()[key] = control.type === 'range' ? Number(control.value) : control.value; saveSettings(); callback?.(); }; if (control.type === 'range' || control.type === 'color') control.oninput = update; else control.onchange = update; }
+function bindSettingControl(id, key, callback) { const control = document.getElementById(id); if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) return; control.value = String(getSettings()[key]); const update = () => { getSettings()[key] = ['range', 'number'].includes(control.type) ? Number(control.value) : control.value; saveSettings(); callback?.(); }; if (control.type === 'range' || control.type === 'color') control.oninput = update; else control.onchange = update; }
 
 function rebuildLocalizedInterface() {
     const wasOpen = isInterfaceOpen(); const currentEvent = eventNoticeCurrent;
@@ -1449,6 +1486,7 @@ function bindSettingsDrawer() {
     bindSettingControl('sl-system-glow', 'glowStrength', applyAppearance);
     bindSettingControl('sl-system-notification-position', 'notificationPosition', applyAppearance);
     bindSettingControl('sl-system-notification-mode', 'notificationMode', applyAppearance);
+    bindSettingControl('sl-system-notification-dismiss-seconds', 'notificationDismissSeconds');
     bindSettingControl('sl-system-sidebar-mode', 'sidebarMode', () => { setEdgeLauncher(false); syncEdgeLauncherVisibility(); applyAppearance(); });
     bindSettingControl('sl-system-sidebar-position', 'sidebarPosition', applyAppearance);
     bindSettingControl('sl-system-layout-mode', 'layoutMode', applyAppearance);

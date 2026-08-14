@@ -4,7 +4,7 @@ The System is a Solo Leveling-inspired persistent role-play interface for SillyT
 
 ## Current build
 
-Version 1.3.1 adds a flexible chat launcher with fixed-edge, draggable floating-dot, and fully hidden modes while preserving the skill and summon presentation improvements from v1.3.0.
+Version 1.3.2 shares canonical UI choices (including System colors) with the next main-chat prompt and adds configurable event-alert auto-dismiss (10 seconds by default; 0 keeps alerts open). It also preserves the flexible fixed-edge, draggable floating-dot, and hidden launcher modes from v1.3.1.
 
 - Choose **Fixed edge rail**, **Draggable floating dot**, or **Off / hidden** in the extension settings. The floating dot opens the quick System menu on tap/click, supports mouse and one-finger dragging, stays inside the visible screen, and remembers its relative position across resizing and rotation.
 
@@ -59,7 +59,7 @@ Version 1.3.1 adds a flexible chat launcher with fixed-edge, draggable floating-
 
 ## Live preview
 
-Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.3.1 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
+Compare the responsive PC and mobile layouts, modules, sidebar, Dynamic Island, and alerts in the [interactive v1.3.2 preview](https://raw.githack.com/DesZiDesu/sololeveling-extension/main/preview.html).
 
 ## Installation
 
@@ -69,4 +69,4 @@ Install the repository as a SillyTavern third-party extension using:
 https://github.com/DesZiDesu/sololeveling-extension
 ```
 
-After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.3.1.
+After installation, open **Extensions → The System**, or open the wand menu and choose **The System**. Existing users can update the extension from SillyTavern's extension manager to receive v1.3.2.
