@@ -1,0 +1,370 @@
+/* Progression + World visual integration
+ * Keep their specialized layouts while using the same visual language as Status.
+ */
+
+.slx-system-panel[data-slx-panel="progression"],
+.slx-system-panel[data-slx-panel="world"] {
+    --slx-section-surface: linear-gradient(145deg, rgba(var(--sl-system-accent-rgb), .025), rgba(255,255,255,.008));
+}
+
+/* Match the Status module hierarchy and typography. */
+.slx-system-panel[data-slx-panel="progression"] .slx-heading,
+.slx-system-panel[data-slx-panel="world"] .slx-heading {
+    margin: 0 0 24px;
+    padding: 0 0 16px;
+    border-bottom: 1px solid var(--sl-line);
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-heading small,
+.slx-system-panel[data-slx-panel="world"] .slx-heading small {
+    color: var(--sl-system-accent);
+    font-family: var(--sl-font);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .2em;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-heading h3,
+.slx-system-panel[data-slx-panel="world"] .slx-heading h3 {
+    margin-top: 5px;
+    color: var(--sl-ink);
+    font-family: var(--sl-serif);
+    font-size: clamp(30px, 4vw, 46px);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -.02em;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-heading > strong,
+.slx-system-panel[data-slx-panel="world"] .slx-heading > strong {
+    padding: 7px 10px;
+    border: 0;
+    border-left: 2px solid var(--sl-system-accent);
+    border-radius: 0;
+    background: rgba(var(--sl-system-accent-rgb), .055);
+    color: var(--sl-ink-soft);
+    font-family: var(--sl-font);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .15em;
+}
+
+/* Progression effective attributes become one technical dossier matrix instead
+ * of five unrelated dashboard tiles. */
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    margin-bottom: 18px;
+    overflow: hidden;
+    border: 1px solid var(--sl-line);
+    border-radius: 0;
+    background:
+        linear-gradient(90deg, rgba(var(--sl-system-accent-rgb), .045), transparent 36%),
+        rgba(255,255,255,.012);
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats::before {
+    content: "EFFECTIVE ATTRIBUTE REGISTER";
+    grid-column: 1 / -1;
+    display: block;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--sl-line);
+    color: var(--sl-ink-muted);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article {
+    position: relative;
+    min-height: 112px;
+    padding: 17px 16px 15px;
+    border: 0;
+    border-right: 1px solid var(--sl-line);
+    border-radius: 0;
+    background: transparent;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article:last-child {
+    border-right: 0;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: 12px;
+    height: 12px;
+    border-right: 1px solid rgba(var(--sl-system-accent-rgb), .45);
+    border-bottom: 1px solid rgba(var(--sl-system-accent-rgb), .45);
+    opacity: .65;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats span {
+    color: var(--sl-system-accent);
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: .15em;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats b {
+    margin: 10px 0 7px;
+    color: var(--sl-ink);
+    font-family: var(--sl-serif);
+    font-size: 34px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-effective-stats small {
+    color: var(--sl-ink-muted);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .1em;
+}
+
+/* Shared extended cards use the same thin dossier frame as Status cards. */
+.slx-system-panel[data-slx-panel="progression"] .slx-card,
+.slx-system-panel[data-slx-panel="world"] .slx-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--sl-line);
+    border-radius: 0;
+    background: var(--slx-section-surface);
+    box-shadow: none;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card::before,
+.slx-system-panel[data-slx-panel="world"] .slx-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 44px;
+    background: var(--sl-system-accent);
+    box-shadow: 0 0 12px rgba(var(--sl-system-accent-rgb), .35);
+    opacity: .7;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card > header,
+.slx-system-panel[data-slx-panel="world"] .slx-card > header {
+    min-height: 66px;
+    margin: 0;
+    padding: 16px 18px 15px 20px;
+    border-bottom: 1px solid var(--sl-line);
+    background:
+        linear-gradient(90deg, rgba(var(--sl-system-accent-rgb), .04), transparent 48%),
+        rgba(255,255,255,.008);
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card > header span,
+.slx-system-panel[data-slx-panel="world"] .slx-card > header span {
+    color: var(--sl-system-accent);
+    font-family: var(--sl-font);
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: .16em;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card > header b,
+.slx-system-panel[data-slx-panel="world"] .slx-card > header b {
+    color: var(--sl-ink);
+    font-family: var(--sl-serif);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card > .slx-scroll,
+.slx-system-panel[data-slx-panel="world"] .slx-card > .slx-scroll {
+    padding: 16px 18px 18px;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card p,
+.slx-system-panel[data-slx-panel="world"] .slx-card p {
+    color: var(--sl-ink-muted);
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+/* Data rows borrow Status' record-ledger rhythm. */
+.slx-system-panel[data-slx-panel="progression"] .slx-scroll > article,
+.slx-system-panel[data-slx-panel="world"] .slx-scroll > article {
+    min-height: 58px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--sl-line);
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-scroll > article:last-child,
+.slx-system-panel[data-slx-panel="world"] .slx-scroll > article:last-child {
+    border-bottom: 0;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-scroll b,
+.slx-system-panel[data-slx-panel="world"] .slx-scroll b {
+    color: var(--sl-ink);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-scroll small,
+.slx-system-panel[data-slx-panel="world"] .slx-scroll small {
+    margin-top: 4px;
+    color: var(--sl-ink-muted);
+    font-size: 8px;
+    line-height: 1.45;
+    letter-spacing: .04em;
+}
+
+/* Buttons follow the Status technical control language. */
+.slx-system-panel[data-slx-panel="progression"] .slx-card button,
+.slx-system-panel[data-slx-panel="world"] .slx-card button,
+.slx-system-panel[data-slx-panel="world"] .slx-snapshot-actions button {
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid var(--sl-line);
+    border-radius: 0;
+    background: rgba(var(--sl-system-accent-rgb), .045);
+    color: var(--sl-ink-soft);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.slx-system-panel[data-slx-panel="progression"] .slx-card button:hover,
+.slx-system-panel[data-slx-panel="progression"] .slx-card button:focus-visible,
+.slx-system-panel[data-slx-panel="progression"] .slx-card button.is-active,
+.slx-system-panel[data-slx-panel="world"] .slx-card button:hover,
+.slx-system-panel[data-slx-panel="world"] .slx-card button:focus-visible,
+.slx-system-panel[data-slx-panel="world"] .slx-snapshot-actions button:hover,
+.slx-system-panel[data-slx-panel="world"] .slx-snapshot-actions button:focus-visible {
+    outline: 0;
+    border-color: var(--sl-line-strong);
+    background: rgba(var(--sl-system-accent-rgb), .085);
+    color: var(--sl-system-accent);
+}
+
+/* Empty archive modules should look intentionally inactive, not unfinished. */
+.slx-system-panel[data-slx-panel="progression"] .slx-scroll > p:only-child,
+.slx-system-panel[data-slx-panel="world"] .slx-scroll > p:only-child {
+    min-height: 72px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    border-left: 1px dashed rgba(var(--sl-system-accent-rgb), .25);
+    color: var(--sl-ink-muted);
+    font-size: 10px;
+    letter-spacing: .04em;
+}
+
+/* World uses a denser intelligence/archive treatment distinct from Progression. */
+.slx-system-panel[data-slx-panel="world"] .slx-card.slx-wide:first-of-type {
+    background:
+        linear-gradient(110deg, rgba(var(--sl-system-accent-rgb), .055), transparent 44%),
+        rgba(255,255,255,.012);
+}
+
+.slx-system-panel[data-slx-panel="world"] .slx-card.slx-wide:first-of-type .slx-scroll > article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 18px;
+    align-items: center;
+    min-height: 74px;
+}
+
+.slx-system-panel[data-slx-panel="world"] .slx-card.slx-wide:first-of-type .slx-scroll > article > p {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+
+.slx-system-panel[data-slx-panel="world"] .slx-card.slx-wide:first-of-type .slx-scroll > article > strong,
+.slx-system-panel[data-slx-panel="world"] .slx-scroll > article > span {
+    color: var(--sl-system-accent);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.slx-system-panel[data-slx-panel="world"] .slx-history {
+    border-top: 0;
+}
+
+.slx-system-panel[data-slx-panel="world"] .slx-history article {
+    min-height: 54px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--sl-line);
+}
+
+.slx-system-panel[data-slx-panel="world"] .slx-history time {
+    color: var(--sl-system-accent);
+    opacity: .58;
+}
+
+@media (max-width: 820px) {
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article:nth-of-type(3n) {
+        border-right: 0;
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article:nth-of-type(-n+3) {
+        border-bottom: 1px solid var(--sl-line);
+    }
+}
+
+@media (max-width: 600px) {
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats::before {
+        padding: 8px 12px;
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article {
+        min-height: 102px;
+        padding: 14px 13px;
+        border-right: 1px solid var(--sl-line);
+        border-bottom: 1px solid var(--sl-line);
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article:nth-of-type(2n) {
+        border-right: 0;
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats article:last-child {
+        border-bottom: 0;
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-effective-stats b {
+        font-size: 30px;
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-card > header,
+    .slx-system-panel[data-slx-panel="world"] .slx-card > header {
+        min-height: 58px;
+        padding: 14px 14px 13px 16px;
+    }
+
+    .slx-system-panel[data-slx-panel="progression"] .slx-card > .slx-scroll,
+    .slx-system-panel[data-slx-panel="world"] .slx-card > .slx-scroll {
+        padding: 14px 15px 16px;
+    }
+
+    .slx-system-panel[data-slx-panel="world"] .slx-card.slx-wide:first-of-type .slx-scroll > article {
+        grid-template-columns: 1fr;
+    }
+
+    .slx-system-panel[data-slx-panel="world"] .slx-card.slx-wide:first-of-type .slx-scroll > article > p {
+        grid-column: auto;
+    }
+}
