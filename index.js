@@ -1,4 +1,12 @@
 /* global SillyTavern */
+/* The System - single-file runtime.
+ * Former modules remain in original execution order with isolated scopes.
+ */
+
+/* ===== index.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+/* global SillyTavern */
 
 const EXTENSION_FOLDER = 'third-party/sololeveling-extension';
 const SETTINGS_KEY = 'the_system';
@@ -1523,3 +1531,661 @@ async function initialize() {
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true }); else void initialize();
+
+})();
+
+/* ===== expansion-foundation.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+/* global SillyTavern */
+const CK='solo_leveling_system_state',EK='solo_leveling_system_expansion_state',PK='solo_leveling_system_expansion_prompt',V='1.4.0';
+const RX=/<!--\s*solo_system_expansion_patch\s*:\s*([\s\S]*?)\s*-->/gi;
+const PATHS=new Set(['statusEffects','job','rankEvaluation','skillEvolutions','gates','dungeons','encounter','equipmentEnhancements','sets','titleEffects','achievements','questChains','summonSquads','bestiary','crafting','hunters','guilds']);
+const D={unlock:{status:'idle',signature:'',language:'en',excerpt:'',messageId:null},day:{lastKey:'',issued:[]},ui:{mission:'ongoing'},statusEffects:[],job:{name:'None',level:1,experience:0,experienceRequired:100,description:'',availableAdvancements:[]},rankEvaluation:{currentRank:'E',manaScore:null,evaluatedAt:'',eligible:false,specialDesignation:''},skillEvolutions:[],gates:[],dungeons:[],encounter:null,equipmentEnhancements:{},sets:[],titleEffects:[],achievements:[],questChains:[],summonSquads:[],bestiary:[],crafting:{recipes:[]},hunters:[],guilds:[],history:[],snapshots:[],balance:{profile:'standard',expGrowth:1.2,statPointsPerLevel:3,rewardMultiplier:1,enhancementCostMultiplier:1},lastCore:null,updatedAt:''};
+const C=()=>globalThis.SillyTavern?.getContext?.()||{};
+const cp=v=>{try{return structuredClone(v)}catch{return JSON.parse(JSON.stringify(v))}};
+const n=(v,d=0,a=-Infinity,b=Infinity)=>Number.isFinite(+v)?Math.min(b,Math.max(a,+v)):d;
+const s=(v,d='',m=1000)=>((typeof v==='string'||typeof v==='number')?String(v).trim():'')?.slice(0,m)||d;
+const A=(v,m=200)=>Array.isArray(v)?v.filter(Boolean).slice(0,m):[];
+const H=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const id=(p='slx')=>`${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+const thai=v=>/[\u0E00-\u0E7F]/.test(String(v||''));
+const pct=(v,m)=>m>0?Math.max(0,Math.min(100,Math.round(v/m*100))):0;
+const core=()=>globalThis.TheSystemExtension?.state?cp(globalThis.TheSystemExtension.state()):(C().chatMetadata?.[CK]?cp(C().chatMetadata[CK]):null);
+const R=globalThis.__SLX_SYSTEM_EXPANSION__=globalThis.__SLX_SYSTEM_EXPANSION__||{};
+function norm(x={}){
+ const z=cp(D); z.unlock={...z.unlock,...(x.unlock||{})}; z.day={...z.day,...(x.day||{})}; z.ui={...z.ui,...(x.ui||{})};
+ z.day.issued=[...new Set(A(z.day.issued,120).map(v=>s(v,'',150)))].filter(Boolean);
+ for(const k of ['skillEvolutions','gates','dungeons','sets','titleEffects','achievements','questChains','summonSquads','bestiary','hunters','guilds'])z[k]=A(x[k],k==='bestiary'?300:150);
+ z.statusEffects=A(x.statusEffects,80).map((e,i)=>({id:s(e.id,`effect-${i}`),name:s(e.name,'Status Effect'),type:s(e.type,'neutral',30),source:s(e.source),description:s(e.description,'',500),active:e.active!==false,stacks:n(e.stacks,1,1,999),remainingReplies:e.remainingReplies==null?null:n(e.remainingReplies,0,0,9999),removable:e.removable!==false,effects:e.effects||{}}));
+ z.job={...z.job,...(x.job||{})}; z.job.availableAdvancements=A(z.job.availableAdvancements,20);
+ z.rankEvaluation={...z.rankEvaluation,...(x.rankEvaluation||{})}; z.encounter=x.encounter&&typeof x.encounter==='object'?x.encounter:null;
+ z.equipmentEnhancements=x.equipmentEnhancements&&typeof x.equipmentEnhancements==='object'&&!Array.isArray(x.equipmentEnhancements)?x.equipmentEnhancements:{};
+ z.crafting={recipes:A(x.crafting?.recipes,150)}; z.history=A(x.history,240); z.snapshots=A(x.snapshots,10);
+ z.balance={...z.balance,...(x.balance||{})}; z.lastCore=x.lastCore&&typeof x.lastCore==='object'?x.lastCore:null; z.updatedAt=s(x.updatedAt,'',80); return z;
+}
+const ex=()=>norm(C().chatMetadata?.[EK]||{});
+async function meta(){await C().saveMetadata?.()}
+async function saveE(x){const c=C();if(!c.getCurrentChatId?.())return false;c.chatMetadata||={};x=norm(x);x.updatedAt=new Date().toISOString();c.chatMetadata[EK]=x;await meta();R.prompt?.(x);R.render?.();return true}
+async function saveC(x){const c=C();if(!x||!c.getCurrentChatId?.())return false;c.chatMetadata||={};c.chatMetadata[CK]=x;await meta();return true}
+const note=(m,t,d='',o={})=>{try{globalThis.TheSystemExtension?.notify?.(m,t,d,o)}catch(e){console.warn('[System Expansion] notice',e)}};
+function hist(x,type,title,detail=''){x.history.push({id:id('h'),at:new Date().toISOString(),type,title:s(title,'Event',140),detail:s(detail,'',400)});x.history=x.history.slice(-240)}
+function summary(c){return c?{level:n(c.player?.level,1),rank:s(c.player?.rank,'E'),hp:n(c.player?.hp),mp:n(c.player?.mp),req:n(c.player?.experienceRequired,100),points:n(c.player?.statPoints),day:n(c.scene?.dayCount),date:s(c.scene?.date),location:s(c.scene?.location),skills:A(c.skills).map(v=>v.id),items:A(c.inventory).map(v=>v.id),titles:A(c.player?.titles),summons:A(c.shadowArmy).filter(v=>!v.dismissed).map(v=>v.id),quests:Object.fromEntries(A(c.quests).map(v=>[v.id,v.status]))}:null}
+function coreHistory(x,c){
+ const b=x.lastCore,a=summary(c); if(!a)return;
+ if(b){if(a.level>b.level)hist(x,'level','Level increased',`${b.level} → ${a.level}`);if(a.rank!==b.rank)hist(x,'rank','Hunter rank changed',`${b.rank} → ${a.rank}`);if(a.hp!==b.hp)hist(x,'hp','HP changed',`${b.hp} → ${a.hp}`);if(a.mp!==b.mp)hist(x,'mp','MP changed',`${b.mp} → ${a.mp}`);for(const q of a.skills.filter(v=>!b.skills?.includes(v)))hist(x,'skill','Skill acquired',q);for(const q of a.items.filter(v=>!b.items?.includes(v)))hist(x,'item','Item acquired',q);for(const q of a.titles.filter(v=>!b.titles?.includes(v)))hist(x,'title','Title acquired',q);for(const q of a.summons.filter(v=>!b.summons?.includes(v)))hist(x,'summon','Summon registered',q);for(const [q,st] of Object.entries(a.quests))if(b.quests?.[q]&&b.quests[q]!==st)hist(x,'quest','Mission status changed',`${q}: ${b.quests[q]} → ${st}`)}
+ x.lastCore=a;
+}
+function balance(x,c){const b=x.lastCore;if(!b||!c?.player)return false;const g=n(c.player.level)-n(b.level);if(g<=0)return false;if(x.balance.statPointsPerLevel!==3)c.player.statPoints=Math.max(0,n(c.player.statPoints)+(x.balance.statPointsPerLevel-3)*g);if(Math.abs(x.balance.expGrowth-1.2)>.001)c.player.experienceRequired=Math.max(1,Math.ceil(n(b.req,100)*Math.pow(x.balance.expGrowth,g)));return true}
+function dayKey(c){const q=c?.scene||{},dc=n(q.dayCount);const date=s(q.date),yr=s(q.year),dy=s(q.day);if(date&&!/^unknown$/i.test(date))return`${yr}|${date}|${dc||dy}`;return dc>0?`day:${dc}|${dy}`:''}
+function hash(v){let h=2166136261;for(const c of String(v)){h^=c.codePointAt(0);h=Math.imul(h,16777619)}return h|0}
+function reward(key,l,th){const st=['strength','agility','vitality','intelligence','perception'][Math.abs(hash(key))%5],hp=70+l*5,mp=45+l*4;const item=(idn,name,cat,desc,ef)=>({id:idn,name,category:cat,rarity:l>=35?'Rare':l>=20?'Uncommon':'Common',quantity:1,description:desc,price:0,slot:'',usable:true,effects:{hp:0,mp:0,fatigue:0,cure:false,detoxify:false,stats:{},description:desc,...ef}});return[{id:`${key}-hp`,type:'item',name:th?'ยาฟื้นฟูรายวัน':'Daily Recovery Potion',amount:1,item:item(`${key}-hpi`,th?'ยาฟื้นฟูรายวัน':'Daily Recovery Potion','Potion',th?`ฟื้นฟู HP ${hp}`:`Restore ${hp} HP`,{hp})},{id:`${key}-mp`,type:'item',name:th?'ยาฟื้นมานารายวัน':'Daily Mana Potion',amount:1,item:item(`${key}-mpi`,th?'ยาฟื้นมานารายวัน':'Daily Mana Potion','Potion',th?`ฟื้นฟู MP ${mp}`:`Restore ${mp} MP`,{mp})},{id:`${key}-stat`,type:'item',name:th?'ตราฝึกฝนระบบ':'System Training Emblem',amount:1,item:item(`${key}-sti`,th?'ตราฝึกฝนระบบ':'System Training Emblem','Consumable',th?`เพิ่ม ${st.toUpperCase()} 1 แต้ม`:`Increase ${st.toUpperCase()} by 1`,{stats:{[st]:1}})}]}
+function dailyQuest(c,x,key,th){const l=n(c.player?.level,1),er=Math.max(100,Math.round((120+l*18)*x.balance.rewardMultiplier));return{id:`daily-auto-${Math.abs(hash(key)).toString(36)}`,title:th?'ภารกิจรายวัน: การฝึกพื้นฐาน':'Daily Quest: Foundation Training',type:'Daily',daily:true,status:'Active',description:th?'ทำภารกิจให้สำเร็จก่อนวันในเนื้อเรื่องจะสิ้นสุด':'Complete every objective before the current role-play day ends.',objectives:[['pushups',th?'วิดพื้น':'Push-ups',100,th?'ครั้ง':'reps'],['situps',th?'ซิทอัพ':'Sit-ups',100,th?'ครั้ง':'reps'],['squats',th?'สควอต':'Squats',100,th?'ครั้ง':'reps'],['run',th?'วิ่ง':'Run',10,'km']].map(v=>({id:v[0],label:v[1],current:0,goal:v[2],unit:v[3],completed:false})),experienceReward:er,rewardOptions:reward(key,l,th),rewardClaimed:false,claimedRewardId:'',deadline:th?'ก่อนวันในเนื้อเรื่องจะสิ้นสุด':'Before role-play day ends',penalty:{hp:0,mp:0,currency:0,experience:Math.min(100,l*4),description:th?'ระบบบทลงโทษทำงานเมื่อวันสิ้นสุด':'Penalty protocol activates if the day ends.'},penaltyApplied:false}}
+async function daily(x,c){if(!c?.accepted)return false;const k=dayKey(c);if(!k)return false;let ch=false;if(x.day.lastKey&&x.day.lastKey!==k)for(const q of A(c.quests))if(q.daily&&String(q.status).toLowerCase()==='active'&&String(q.id).startsWith('daily-auto-')){q.status='Failed';hist(x,'quest','Daily Quest failed',q.title);ch=true}x.day.lastKey=k;if(n(c.player?.level,1)>=50||x.day.issued.includes(k))return ch;const th=thai((C().chat||[]).slice(-4).map(v=>v?.mes||'').join('\n')),q=dailyQuest(c,x,k,th);c.quests||=[];c.quests.push(q);x.day.issued.push(k);x.day.issued=x.day.issued.slice(-120);hist(x,'quest','Daily Quest issued',q.title);note('quest',th?'ภารกิจรายวันใหม่':'NEW DAILY QUEST',q.title,{tab:'quest',questId:q.id});return true}
+function tick(x){let ch=false;for(const e of x.statusEffects)if(e.active&&e.remainingReplies!=null){if(e.remainingReplies>0){e.remainingReplies--;ch=true}if(e.remainingReplies<=0){e.active=false;hist(x,'effect','Status effect ended',e.name);ch=true}}return ch}
+function achievements(x,c){const ds=[['l10','Ten Steps Beyond',()=>n(c.player?.level)>=10,'Reach Level 10.'],['l25','Awakened Momentum',()=>n(c.player?.level)>=25,'Reach Level 25.'],['l50','Daily Protocol Complete',()=>n(c.player?.level)>=50,'Reach Level 50.'],['gate','Gatebreaker',()=>x.dungeons.some(v=>/cleared/i.test(v.status||'')),'Clear a dungeon.'],['army','Shadow Commander',()=>A(c.shadowArmy).filter(v=>!v.dismissed).length>=10,'Command ten summons.'],['master','Perfected Technique',()=>A(c.skills).some(v=>v.mastered||n(v.mastery)>=n(v.masteryRequired,1)),'Master a skill.']];let ch=false;for(const [i,name,test,description] of ds)if(!x.achievements.some(v=>v.id===i)&&test()){x.achievements.push({id:i,name,description,unlockedAt:new Date().toISOString(),reward:''});hist(x,'achievement','Achievement unlocked',name);note('title','ACHIEVEMENT UNLOCKED',name,{event:true});ch=true}return ch}
+function unlockScore(v){v=String(v||'');let z=0;if(/\b(near death|verge of death|about to die|dying|mortally wounded|fatal(?:ly)? wounded|critical condition|bleeding out|barely alive|death'?s door|heart (?:stops|stopped)|flatline)\b/i.test(v)||/(ใกล้ตาย|กำลังจะตาย|เกือบตาย|ปางตาย|อาการสาหัส|บาดเจ็บสาหัส|เสียเลือดมาก|เลือดไหลไม่หยุด|หัวใจหยุด|ร่อแร่|เฉียดตาย)/.test(v))z+=3;if(/\b(collapse|unconscious|severe wound|critical injury|blood|monster|dungeon|boss|attack)\b/i.test(v)||/(หมดสติ|ล้มลง|บาดแผล|เลือด|มอนสเตอร์|ดันเจี้ยน|บอส|โจมตี)/.test(v))z++;if(/\b(survive|survived|still alive|clung to life)\b/i.test(v)||/(รอดชีวิต|ยังมีชีวิต|ไม่ยอมตาย)/.test(v))z++;return z}
+function unlock(x,c,mi){if(c?.accepted||['pending','accepted','declined'].includes(x.unlock.status))return null;const ch=C().chat||[],a=Number.isInteger(mi)?ch[mi]:[...ch].reverse().find(v=>!v?.is_user&&!v?.is_system&&v?.mes);if(!a?.mes)return null;const u=[...ch.slice(0,Number.isInteger(mi)?mi:ch.length)].reverse().find(v=>v?.is_user&&!v?.is_system&&v?.mes),t=`${u?.mes||''}\n${a.mes}`;if(unlockScore(t)<3)return null;const sig=`${mi}:${hash(t)}`;if(sig===x.unlock.signature)return null;return{signature:sig,language:thai(t)?'th':'en',excerpt:String(a.mes).replace(/<!--[\s\S]*?-->/g,' ').replace(/\s+/g,' ').trim().slice(0,190),messageId:mi}}
+function unlockUI(x){if(document.getElementById('slx-unlock-notice')||x.unlock.status!=='pending')return;const th=x.unlock.language==='th',e=document.createElement('aside');e.id='slx-unlock-notice';e.className='slx-unlock-notice';e.innerHTML=`<div class="slx-unlock-scan"></div><header><span>PLAYER QUALIFICATION / ${th?'ตรวจพบ':'DETECTED'}</span><b>SYS-00</b></header><section><i class="fa-solid fa-diamond"></i><div><small>${th?'เงื่อนไขการปลดล็อกสำเร็จ':'UNLOCK CONDITION SATISFIED'}</small><h3>${th?'ตรวจพบผู้มีคุณสมบัติเป็น Player':'A Player candidate has been detected.'}</h3><p>${th?'ในช่วงเวลานี้ของเรื่อง:':'At this moment in the role-play:'}</p><blockquote>${H(x.unlock.excerpt)}</blockquote><p>${th?'ต้องการยอมรับการเชื่อมต่อกับระบบหรือไม่?':'Accept connection to The System and become a Player?'}</p></div></section><footer><button data-slx-unlock="decline">${th?'ปฏิเสธ':'DECLINE'}</button><button class="is-primary" data-slx-unlock="accept">${th?'ยอมรับ':'ACCEPT'}</button></footer>`;document.body.appendChild(e)}
+async function accept(){const c=core(),x=ex();if(!c)return;c.accepted=true;c.pendingActions||=[];c.pendingActions.push({id:id('a'),type:'system-unlock',summary:'Accepted Player designation and connected to The System.',payload:{source:'automatic-unlock'},at:new Date().toISOString()});x.unlock.status='accepted';hist(x,'system','Player designation accepted',x.unlock.excerpt);await saveC(c);await saveE(x);document.getElementById('slx-unlock-notice')?.remove();note('level',x.unlock.language==='th'?'PLAYER ได้รับการยืนยัน':'PLAYER AUTHORIZED',x.unlock.language==='th'?'ระบบเชื่อมต่อกับแชตนี้แล้ว':'The System is now connected to this chat.',{event:true});globalThis.TheSystemExtension?.open?.()}
+async function decline(){const x=ex();x.unlock.status='declined';hist(x,'system','Player designation declined',x.unlock.excerpt);await saveE(x);document.getElementById('slx-unlock-notice')?.remove()}
+
+Object.assign(R,{CK,EK,PK,V,RX,PATHS,D,C,cp,n,s,A,H,id,thai,pct,core,norm,ex,meta,saveE,saveC,note,hist,summary,coreHistory,balance,dayKey,hash,reward,dailyQuest,daily,tick,achievements,unlockScore,unlock,unlockUI,accept,decline});
+
+})();
+
+/* ===== expansion-engine.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+const R=globalThis.__SLX_SYSTEM_EXPANSION__;
+const {C,cp,n,s,A,H,id,thai,pct,core,ex,norm,saveE,saveC,note,hist,RX,PATHS,EK,PK,V}=R;
+function gp(o,p){return String(p).split('.').filter(Boolean).reduce((v,k)=>v?.[k],o)}
+function sp(o,p,v){const q=String(p).split('.').filter(Boolean);if(!q.length||q.length>7||!PATHS.has(q[0]))return false;let z=o;for(const k of q.slice(0,-1)){if(!z[k]||typeof z[k]!=='object')z[k]={};z=z[k]}z[q.at(-1)]=v;return true}
+function up(a,v){if(!Array.isArray(a)||!v?.id)return false;const i=a.findIndex(q=>String(q?.id)===String(v.id));i<0?a.push(v):a[i]={...a[i],...v};return true}
+function patch(x,p){if(!p?.ops)return x;for(const q of p.ops.slice(0,100)){if(!Array.isArray(q)||q.length<3)continue;const [v,path,val]=q,top=String(path).split('.')[0];if(!PATHS.has(top))continue;if(v==='set')sp(x,path,val);else if(v==='inc'&&typeof gp(x,path)==='number')sp(x,path,gp(x,path)+n(val));else if(v==='upsert')up(gp(x,path),val);else if(v==='delete'&&Array.isArray(gp(x,path)))sp(x,path,gp(x,path).filter(e=>String(e?.id)!==String(typeof val==='object'?val.id:val)))}if(p.summary)hist(x,'sync','Expanded System synchronized',p.summary);return norm(x)}
+function extract(m){const ps=[];const visible=String(m||'').replace(RX,(_m,v)=>{try{ps.push(JSON.parse(v))}catch(e){console.warn('[System Expansion] invalid patch',e)}return''}).trimEnd();return{visible,patch:ps.length?{ops:ps.flatMap(v=>A(v.ops,100)),summary:ps.map(v=>v.summary).filter(Boolean).join('; ')}:null}}
+function mods(x,c){const t={strength:0,agility:0,vitality:0,intelligence:0,perception:0},add=v=>Object.keys(t).forEach(k=>t[k]+=n(v?.[k]));for(const e of x.statusEffects.filter(v=>v.active))add(e.effects?.stats);add(x.titleEffects.find(v=>v.equipped)?.effects?.stats);for(const iid of Object.values(c?.equipment||{}).filter(Boolean))add(x.equipmentEnhancements[iid]?.bonuses?.stats);for(const set of x.sets){const ids=new Set(Object.values(c?.equipment||{}).filter(Boolean)),pc=A(set.pieces).filter(v=>ids.has(v)).length;for(const b of A(set.bonuses))if(pc>=n(b.pieces,999))add(b.effects?.stats)}return t}
+async function action(type,summary,payload={}){const c=core();if(!c)return;c.pendingActions||=[];c.pendingActions.push({id:id('a'),type,summary,payload,at:new Date().toISOString()});c.pendingActions=c.pendingActions.slice(-30);await saveC(c);note('sync','ACTION REGISTERED',summary,{event:false})}
+async function enhance(iid){const c=core(),x=ex(),it=A(c?.inventory).find(v=>v.id===iid);if(!c||!it)return;const r=x.equipmentEnhancements[iid]||={id:iid,level:0,maxLevel:10,bonuses:{stats:{}},affixes:[],setId:'',successRate:1};if(n(r.level)>=n(r.maxLevel,10))return;const nl=n(r.level)+1,cost=n(r.cost,Math.round((80+nl*nl*45)*x.balance.enhancementCostMultiplier));if(n(c.currency?.amount)<cost)return note('warning','INSUFFICIENT SYSTEM CREDIT',`${cost} ${c.currency?.symbol||'SC'} required`,{event:false});c.currency.amount-=cost;const ok=Math.random()<=n(r.successRate,1,0,1);if(ok){r.level=nl;const st=Object.entries(it.effects?.stats||{}).sort((a,b)=>n(b[1])-n(a[1]))[0]?.[0]||(it.slot==='weapon'?'strength':['head','chest','hands','legs','feet'].includes(it.slot)?'vitality':'perception');r.bonuses||={stats:{}};r.bonuses.stats||={};r.bonuses.stats[st]=n(r.bonuses.stats[st])+1;if([3,6,9].includes(nl))r.affixes.push({id:`${iid}-a${nl}`,level:nl,name:nl===3?'Honed':nl===6?'Reinforced':'Resonant',description:`Enhancement milestone +${nl}.`});hist(x,'equipment','Enhancement succeeded',`${it.name} +${nl}`);note('equipment','ENHANCEMENT SUCCESS',`${it.name} +${nl}`,{tab:'equipment'})}else{hist(x,'equipment','Enhancement failed',it.name);note('danger','ENHANCEMENT FAILED',it.name)}await saveC(c);await saveE(x)}
+async function craft(rid){const c=core(),x=ex(),r=x.crafting.recipes.find(v=>v.id===rid);if(!c||!r)return;const use=[];for(const q of A(r.requirements)){const it=A(c.inventory).find(v=>(q.itemId&&v.id===q.itemId)||(!q.itemId&&s(v.name).toLowerCase()===s(q.name).toLowerCase())),qty=n(q.quantity,1,1);if(!it||n(it.quantity)<qty)return note('warning','MISSING CRAFTING MATERIAL',q.name||q.itemId,{event:false});use.push([it,qty])}const out=r.output?.item||r.output;if(!out?.name)return;for(const [i,q] of use)i.quantity-=q;c.inventory=c.inventory.filter(v=>n(v.quantity)>0);const qty=n(r.output?.quantity,1,1),old=c.inventory.find(v=>s(v.name).toLowerCase()===s(out.name).toLowerCase());old?old.quantity=n(old.quantity)+qty:c.inventory.push({id:out.id||id('item'),name:out.name,category:out.category||'Misc',rarity:out.rarity||'Common',quantity:qty,description:out.description||'Crafted item.',price:n(out.price),slot:out.slot||'',usable:!!out.usable,effects:out.effects||{hp:0,mp:0,fatigue:0,cure:false,detoxify:false,stats:{},description:''}});hist(x,'craft','Item crafted',`${out.name} ×${qty}`);await saveC(c);await saveE(x);note('item','CRAFTING COMPLETE',`${out.name} ×${qty}`,{tab:'inventory'})}
+function snapCore(c){return{accepted:c.accepted,administratorMode:c.administratorMode,player:cp(c.player),currency:cp(c.currency),scene:cp(c.scene),skills:A(c.skills).map(({icon,...v})=>v),shadowArmy:A(c.shadowArmy).map(({portrait,...v})=>v),quests:cp(c.quests||[]),inventory:A(c.inventory).map(({icon,...v})=>v),equipment:cp(c.equipment),shop:A(c.shop).map(({icon,...v})=>v),pendingActions:cp(c.pendingActions||[])}}
+async function snapshot(){const c=core(),x=ex();if(!c)return;const q={id:id('snap'),at:new Date().toISOString(),label:`Snapshot ${new Date().toLocaleString()}`,core:snapCore(c),exp:{...cp(x),snapshots:[],history:x.history.slice(-80)}};x.snapshots.push(q);x.snapshots=x.snapshots.slice(-10);hist(x,'snapshot','Snapshot created',q.label);await saveE(x)}
+async function restore(sid){const cur=core(),x=ex(),q=x.snapshots.find(v=>v.id===sid);if(!cur||!q)return;const r=cp(q.core),merge=(a,b,k)=>A(a).map(v=>{const o=A(b).find(z=>z.id===v.id);return o?.[k]?{...v,[k]:o[k]}:v});r.skills=merge(r.skills,cur.skills,'icon');r.shadowArmy=merge(r.shadowArmy,cur.shadowArmy,'portrait');r.inventory=merge(r.inventory,cur.inventory,'icon');r.shop=merge(r.shop,cur.shop,'icon');const nx=norm({...cp(q.exp),snapshots:x.snapshots});hist(nx,'snapshot','Snapshot restored',q.label);await saveC(r);await saveE(nx);note('scene','SYSTEM SNAPSHOT RESTORED',q.label,{event:true});globalThis.TheSystemExtension?.open?.()}
+function prCore(c){return{player:c?.player,scene:c?.scene,quests:A(c?.quests).map(v=>({id:v.id,title:v.title,status:v.status,daily:v.daily,objectives:v.objectives})),skills:A(c?.skills).map(v=>({id:v.id,name:v.name,type:v.type,level:v.level,mastery:v.mastery,masteryRequired:v.masteryRequired,mastered:v.mastered})),equipment:c?.equipment,inventory:A(c?.inventory).map(v=>({id:v.id,name:v.name,category:v.category,rarity:v.rarity,quantity:v.quantity,slot:v.slot})),shadowArmy:A(c?.shadowArmy).map(v=>({id:v.id,name:v.name,rank:v.rank,level:v.level,status:v.status,dismissed:v.dismissed})),currency:c?.currency}}
+function prompt(x=ex()){const c=C(),st=core();if(typeof c.setExtensionPrompt!=='function')return;const active=!!(c.getCurrentChatId?.()&&st?.accepted);const e=cp(x);for(const k of ['history','snapshots','lastCore','unlock','day','ui'])delete e[k];const text=`<solo_leveling_expansion_state>\nCORE:${JSON.stringify(prCore(st))}\nEXTENDED:${JSON.stringify(e)}\nUse the SAME normal role-play reply; never make a separate generation. After the ordinary solo_system_patch append exactly one invisible comment: <!--solo_system_expansion_patch:{"ops":[],"summary":"No confirmed expanded System change."}-->.\nAllowed paths: statusEffects, job, rankEvaluation, skillEvolutions, gates, dungeons, encounter, equipmentEnhancements, sets, titleEffects, achievements, questChains, summonSquads, bestiary, crafting, hunters, guilds. Ops: set/inc/upsert/delete. Record only story-confirmed facts; stable ids; Thai or English matching the role-play.\nGates track rank/type/color/location/status/danger/timeRemaining; dungeons track gateId/environment/currentZone/exploredPercent/monsters/bossStatus/objectives/resources/exitCondition/status. encounter is null outside combat; otherwise track enemies with rank/level/hp/maxHp/mp/maxMp/status/phase/abilities/weaknesses/resistances/target.\nStatus effects use id/name/type/source/description/active/stacks/remainingReplies/removable/effects{hp,mp,stats}; remainingReplies is decremented locally, not by the model. job tracks separate class progression/advancements. skillEvolutions track choices and requirements. Official Hunter rank is separate from System level; when re-evaluation changes it, core player.rank must change too.\nEnhancement records are keyed by item id with level/maxLevel/bonuses/affixes/setId/successRate/cost. Sets use pieces and threshold bonuses. titleEffects give earned titles real modifiers; only one is equipped. achievements are milestones. questChains relate missions; hidden objectives remain ??? until discovered. summonSquads track commanderId/unitIds/formation/order/status. bestiary tracks species/rank/abilities/weaknesses/resistances/drops/kills. crafting recipes contain requirements and complete core-compatible output item. hunters and guilds are world records.\nDaily Quests are created locally once per ROLE-PLAY day while player.level<50; only update their confirmed objective progress in the core patch. History/snapshots are local and never model-written. Always append one expansion patch, even empty.\n</solo_leveling_expansion_state>`;c.setExtensionPrompt(PK,active?text:'',1,1,false,0)}
+
+Object.assign(R,{gp,sp,up,patch,extract,mods,action,enhance,craft,snapCore,snapshot,restore,prCore,prompt});
+
+})();
+
+/* ===== system-channel-v141.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+/* global SillyTavern */
+
+// The System v1.4.1 — UI-only System communication channel.
+// System-originated messages stay out of visible role-play prose and are routed
+// through the extension's established notification UI. No extra AI generation.
+
+const CORE_KEY = 'solo_leveling_system_state';
+const CHANNEL_KEY = 'solo_leveling_system_ui_channel_v141';
+const PROMPT_KEY = 'solo_leveling_system_ui_channel_prompt_v141';
+const UI_RE = /<!--\s*solo_system_ui\s*:\s*([\s\S]*?)\s*-->/gi;
+const VERSION = '1.4.1';
+const MODES = new Set(['level','reward','quest','skill','title','item','equipment','shop','danger','heal','mana','stat','scene']);
+const MAX_PROCESSED = 240;
+const SYSTEM_START = /^(?:system\b|the\s+system\b|awakening\b|class\b|rank\b|level\b|warning\b|quest\b|mission\b|skill\b|title\b|status\b|player\b|job\b|recovery\b|reward\b|penalty\b|hp\b|mp\b|exp\b|ระบบ|การปลุกพลัง|ปลุกพลัง|คลาส|แรงก์|ระดับ|เลเวล|คำเตือน|ภารกิจ|สกิล|ฉายา|สถานะ|ผู้เล่น|อาชีพ|การฟื้นฟู|ฟื้นฟู|รางวัล|บทลงโทษ)/i;
+
+let initialized = false;
+let eventsBound = false;
+let promptTimer = null;
+let messageTimer = null;
+let processing = false;
+
+const context = () => globalThis.SillyTavern?.getContext?.() || {};
+const txt = (value, fallback = '', max = 1000) => {
+    const raw = typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
+    return (raw || fallback).slice(0, max);
+};
+const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const th = value => /[\u0E00-\u0E7F]/.test(String(value || ''));
+const uid = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+
+function channelState(create = true) {
+    const c = context();
+    if (!c.getCurrentChatId?.()) return null;
+    c.chatMetadata ||= {};
+    if (create) c.chatMetadata[CHANNEL_KEY] ||= { version: 1, pendingDecision: null, processed: {} };
+    const state = c.chatMetadata[CHANNEL_KEY];
+    if (!state || typeof state !== 'object') return null;
+    state.version = 1;
+    state.pendingDecision = state.pendingDecision && typeof state.pendingDecision === 'object' ? state.pendingDecision : null;
+    state.processed = state.processed && typeof state.processed === 'object' ? state.processed : {};
+    return state;
+}
+
+function coreState() {
+    try { if (globalThis.TheSystemExtension?.state) return globalThis.TheSystemExtension.state(); }
+    catch (error) { console.warn('[The System Channel] Core state read failed safely.', error); }
+    return context().chatMetadata?.[CORE_KEY] || null;
+}
+
+async function persistMetadata() {
+    try { await context().saveMetadata?.(); }
+    catch (error) { console.warn('[The System Channel] Metadata save skipped safely.', error); }
+}
+
+async function persistChat() {
+    const c = context();
+    try {
+        if (typeof c.saveChat === 'function') await c.saveChat();
+        else if (typeof c.saveChatConditional === 'function') await c.saveChatConditional();
+    } catch (error) { console.warn('[The System Channel] Chat cleanup save skipped safely.', error); }
+}
+
+function notify(mode, title, detail = '', destination = {}) {
+    try {
+        globalThis.TheSystemExtension?.notify?.(
+            MODES.has(mode) ? mode : 'stat',
+            txt(title, 'SYSTEM INFORMATION', 120),
+            txt(detail, '', 300),
+            { event: true, ...destination },
+        );
+    } catch (error) { console.warn('[The System Channel] Notification failed safely.', error); }
+}
+
+const labelFor = mode => ({level:'LEVEL ALERT',reward:'REWARD ALERT',quest:'MISSION ALERT',skill:'SKILL ALERT',title:'TITLE ALERT',item:'ITEM ALERT',equipment:'EQUIPMENT ALERT',shop:'SHOP ALERT',danger:'DANGER ALERT',heal:'RECOVERY ALERT',mana:'MANA ALERT',stat:'SYSTEM INFORMATION',scene:'SCENE ALERT'})[mode] || 'SYSTEM INFORMATION';
+const iconFor = mode => ({level:'fa-arrow-up',reward:'fa-gift',quest:'fa-scroll',skill:'fa-bolt',title:'fa-crown',item:'fa-box-open',equipment:'fa-shield-halved',shop:'fa-cart-shopping',danger:'fa-triangle-exclamation',heal:'fa-heart-pulse',mana:'fa-droplet',stat:'fa-circle-info',scene:'fa-location-crosshairs'})[mode] || 'fa-circle-info';
+
+function closeDecision() { document.getElementById('sl-system-decision-notice')?.remove(); }
+
+function normalizeDecision(source = {}) {
+    if (!source || typeof source !== 'object') return null;
+    const title = txt(source.title, '', 120), detail = txt(source.detail || source.message, '', 700);
+    if (!title && !detail) return null;
+    return {
+        id: txt(source.id, uid('decision'), 120), mode: MODES.has(source.mode) ? source.mode : 'stat',
+        title: title || 'SYSTEM DECISION', detail,
+        acceptLabel: txt(source.acceptLabel, 'ACCEPT', 60), declineLabel: txt(source.declineLabel, 'DECLINE', 60),
+        actionType: txt(source.actionType, 'system-decision', 100),
+        acceptSummary: txt(source.acceptSummary, `Accepted: ${title || detail}`, 300),
+        declineSummary: txt(source.declineSummary, `Declined: ${title || detail}`, 300),
+        payload: source.payload && typeof source.payload === 'object' && !Array.isArray(source.payload) ? source.payload : {},
+    };
+}
+
+function showDecision(source, handlers = {}) {
+    const d = normalizeDecision(source);
+    if (!d) return false;
+    closeDecision();
+    document.getElementById('slx-unlock-notice')?.remove();
+    const localThai = th(`${d.title} ${d.detail}`);
+    const panel = document.createElement('aside');
+    panel.id = 'sl-system-decision-notice';
+    panel.className = 'sl-system-event-notice sl-system-decision-notice is-visible is-armed';
+    panel.dataset.mode = d.mode;
+    panel.setAttribute('role','alertdialog');
+    panel.setAttribute('aria-live','assertive');
+    panel.innerHTML = `<span class="sl-event-corner corner-a"></span><span class="sl-event-corner corner-b"></span><span class="sl-event-corner corner-c"></span><span class="sl-event-corner corner-d"></span>
+<header><span class="sl-event-brand"><b>SYS</b><span>DECISION RECORD</span></span><span class="sl-event-queue">01</span><i class="fa-solid fa-diamond sl-event-drag-icon"></i></header>
+<div class="sl-event-body"><span class="sl-event-alarm"><i class="fa-solid ${iconFor(d.mode)}"></i><b>${esc(labelFor(d.mode))}</b></span><strong>${esc(d.title)}</strong><small>${esc(d.detail)}</small><em>${localThai ? 'ต้องการคำยืนยันจากผู้เล่น' : 'PLAYER CONFIRMATION REQUIRED'}</em></div>
+<footer><button type="button" data-slc-decision="decline">${esc(d.declineLabel || (localThai ? 'ปฏิเสธ' : 'DECLINE'))}</button><button type="button" data-slc-decision="accept">${esc(d.acceptLabel || (localThai ? 'ยอมรับ' : 'ACCEPT'))}</button></footer><span class="sl-event-scan"></span>`;
+    panel.addEventListener('click', event => {
+        const button = event.target.closest?.('[data-slc-decision]');
+        if (!button) return;
+        panel.querySelectorAll('button').forEach(item => { item.disabled = true; });
+        const callback = button.dataset.slcDecision === 'accept' ? handlers.accept : handlers.decline;
+        Promise.resolve(callback?.()).catch(error => console.warn('[The System Channel] Decision action failed safely.', error)).finally(closeDecision);
+    });
+    document.body.appendChild(panel);
+    return true;
+}
+
+async function recordDecision(d, accepted) {
+    const c = context(), core = coreState();
+    if (core && c.getCurrentChatId?.()) {
+        c.chatMetadata ||= {};
+        core.pendingActions = Array.isArray(core.pendingActions) ? core.pendingActions : [];
+        core.pendingActions.push({ id: uid('action'), type: d.actionType, summary: accepted ? d.acceptSummary : d.declineSummary, payload: { ...d.payload, decisionId: d.id, accepted }, at: new Date().toISOString() });
+        core.pendingActions = core.pendingActions.slice(-30);
+        c.chatMetadata[CORE_KEY] = core;
+    }
+    const state = channelState(true);
+    if (state?.pendingDecision?.id === d.id) state.pendingDecision = null;
+    await persistMetadata();
+    notify('stat', accepted ? 'DECISION ACCEPTED' : 'DECISION DECLINED', accepted ? d.acceptSummary : d.declineSummary);
+}
+
+function renderPendingDecision() {
+    const d = normalizeDecision(channelState(false)?.pendingDecision);
+    if (!d) return false;
+    return showDecision(d, { accept: () => recordDecision(d,true), decline: () => recordDecision(d,false) });
+}
+
+function renderUnlockDecision(expansion) {
+    if (expansion?.unlock?.status !== 'pending') return false;
+    const localThai = expansion.unlock.language === 'th';
+    const excerpt = txt(expansion.unlock.excerpt,'',340);
+    return showDecision({
+        id: `unlock-${txt(expansion.unlock.signature,'pending',120)}`, mode:'level',
+        title: localThai ? 'ตรวจพบผู้มีคุณสมบัติเป็น Player' : 'PLAYER QUALIFICATION DETECTED',
+        detail: localThai
+            ? `${excerpt ? `${excerpt}\n\n` : ''}ตรวจพบเงื่อนไขที่เข้าเกณฑ์ Player ต้องการยอมรับการเชื่อมต่อกับ The System หรือไม่?`
+            : `${excerpt ? `${excerpt}\n\n` : ''}A Player qualification condition has been detected. Accept connection to The System?`,
+        acceptLabel: localThai ? 'ยอมรับ' : 'ACCEPT', declineLabel: localThai ? 'ปฏิเสธ' : 'DECLINE',
+    }, {
+        accept: () => globalThis.__SLX_SYSTEM_EXPANSION__?.accept?.(),
+        decline: async () => {
+            await globalThis.__SLX_SYSTEM_EXPANSION__?.decline?.();
+            notify('stat', localThai ? 'ปฏิเสธการเชื่อมต่อแล้ว' : 'PLAYER DESIGNATION DECLINED', localThai ? 'สามารถเปิด The System จากเมนู Wand ได้ภายหลัง' : 'The System can still be opened manually from the Wand menu later.');
+        },
+    });
+}
+
+function buildPrompt() {
+    const c = context();
+    if (!c.getCurrentChatId?.()) return '';
+    const accepted = Boolean(coreState()?.accepted);
+    return `<solo_leveling_system_ui_channel version="${VERSION}">
+THE SYSTEM OWNS ITS OWN PRESENTATION UI.
+VISIBLE ROLE-PLAY RULE — MANDATORY:
+- Never print System windows, status messages, stat readouts, warnings, mission notices, awakening notices, class/rank notices, rewards, recovery notices, confirmations, or ACCEPT/DECLINE choices as visible prose.
+- This includes visible bracket lines such as [System ...], [ระบบ ...], [Awakening Complete], [การปลุกพลัง...], [Class: ...], [คลาส: ...], [Rank: ...], [ระดับ: ...], [Warning: ...], [คำเตือน: ...], HP/MP/EXP/status dumps, and similar System text.
+- Visible output is world narration and character dialogue only. Characters may react naturally to a System event, but do not quote or duplicate the System UI message in prose.
+- Canonical changes belong in the existing invisible solo_system_patch and solo_system_expansion_patch comments. The extension renders change notifications itself.
+${accepted ? '- The Player is authorized; use the normal System state protocols.' : '- The Player is not yet authorized. Do not force acceptance or print onboarding text. Qualification and Accept/Decline are rendered locally by the extension.'}
+EXTRA UI CHANNEL:
+Only for System information that is not already represented by a canonical state change, append at most one invisible comment:
+<!--solo_system_ui:{"notices":[{"mode":"stat","title":"SYSTEM INFORMATION","detail":"concise message"}],"decision":null}-->
+Allowed notice modes: level,reward,quest,skill,title,item,equipment,shop,danger,heal,mana,stat,scene. Do not duplicate notifications already caused by state patches.
+If the Player must explicitly confirm/refuse a System action, never print choices in visible prose. Use:
+<!--solo_system_ui:{"notices":[],"decision":{"id":"stable-id","mode":"stat","title":"decision title","detail":"what the Player is deciding","acceptLabel":"ACCEPT","declineLabel":"DECLINE","actionType":"system-decision","acceptSummary":"what acceptance means","declineSummary":"what refusal means","payload":{}}}-->
+The extension displays the decision with its normal notification UI and writes the selected result into pendingActions. Initial Player qualification is handled locally; do not create a generic decision for it.
+Match Thai/English to the role-play. Never use Markdown fences for these hidden comments.
+</solo_leveling_system_ui_channel>`;
+}
+
+function updatePrompt() {
+    promptTimer = null;
+    try { if (typeof context().setExtensionPrompt === 'function') context().setExtensionPrompt(PROMPT_KEY, buildPrompt(), 1, 0, false, 0); }
+    catch (error) { console.warn('[The System Channel] Prompt refresh failed safely.', error); }
+}
+function schedulePrompt(delay=30){ clearTimeout(promptTimer); promptTimer=setTimeout(updatePrompt,delay); }
+
+function parseUi(raw) {
+    const notices=[]; let decision=null, found=false;
+    UI_RE.lastIndex=0;
+    const visible=String(raw||'').replace(UI_RE,(_all,payload)=>{
+        found=true;
+        try {
+            const parsed=JSON.parse(payload);
+            for(const item of (Array.isArray(parsed?.notices)?parsed.notices:[]).slice(0,6)){
+                if(!item||typeof item!=='object')continue;
+                const title=txt(item.title,'',120), detail=txt(item.detail||item.message,'',300);
+                if(title||detail)notices.push({mode:MODES.has(item.mode)?item.mode:'stat',title:title||'SYSTEM INFORMATION',detail,destination:item.destination&&typeof item.destination==='object'?item.destination:{}});
+            }
+            decision ||= normalizeDecision(parsed?.decision);
+        } catch(error){ console.warn('[The System Channel] Invalid solo_system_ui payload ignored.',error); }
+        return '';
+    });
+    return {visible:visible.trimEnd(),notices,decision,found};
+}
+
+function systemLine(line) {
+    let value=String(line||'').trim().replace(/^>\s*/,'');
+    if((value.startsWith('**')&&value.endsWith('**'))||(value.startsWith('__')&&value.endsWith('__')))value=value.slice(2,-2).trim();
+    const bracket=value.match(/^\[([\s\S]{1,500})\][.!。]?$/);
+    if(bracket){const inside=bracket[1].trim();return SYSTEM_START.test(inside)?inside:'';}
+    const direct=value.match(/^(?:SYSTEM|THE SYSTEM|ระบบ)\s*[:：-]\s*(.+)$/i);
+    return direct?value:'';
+}
+
+function stripPlainSystem(raw) {
+    const source=String(raw||''), removed=[], kept=[]; let collecting=null;
+    for(const line of source.split('\n')){
+        if(collecting){collecting.push(line);if(line.includes(']')){const joined=collecting.join('\n'), hit=systemLine(joined);hit?removed.push(hit):kept.push(...collecting);collecting=null;}else if(collecting.length>=5){kept.push(...collecting);collecting=null;}continue;}
+        const trimmed=line.trim();
+        if((trimmed.startsWith('[')||trimmed.startsWith('**[')||trimmed.startsWith('__['))&&!trimmed.includes(']')){collecting=[line];continue;}
+        const hit=systemLine(line);hit?removed.push(hit):kept.push(line);
+    }
+    if(collecting)kept.push(...collecting);
+    const visible=kept.join('\n').replace(/\n{3,}/g,'\n\n').trimEnd();
+    return {visible,removed,changed:visible!==source.trimEnd()};
+}
+
+function convertedNotice(lines) {
+    if(!lines.length)return null;
+    const all=lines.join(' '), detail=lines.map(v=>txt(v,'',180)).filter(Boolean).join(' · ').slice(0,300);
+    if(/warning|คำเตือน|penalty|บทลงโทษ/i.test(all))return{mode:'danger',title:th(all)?'คำเตือนจากระบบ':'SYSTEM WARNING',detail};
+    if(/recovery|heal|ฟื้นฟู/i.test(all))return{mode:'heal',title:th(all)?'การฟื้นฟูจากระบบ':'RECOVERY PROTOCOL',detail};
+    if(/awakening|ปลุกพลัง/i.test(all))return{mode:'level',title:th(all)?'การปลุกพลังเสร็จสมบูรณ์':'AWAKENING COMPLETE',detail};
+    if(/quest|mission|ภารกิจ/i.test(all))return{mode:'quest',title:th(all)?'ข้อมูลภารกิจ':'MISSION INFORMATION',detail};
+    if(/skill|สกิล/i.test(all))return{mode:'skill',title:th(all)?'ข้อมูลสกิล':'SKILL INFORMATION',detail};
+    return{mode:'stat',title:th(all)?'ข้อมูลผู้เล่นอัปเดต':'PLAYER RECORD UPDATED',detail};
+}
+
+function fingerprint(value){let h=2166136261;for(const c of String(value||'')){h^=c.codePointAt(0);h=Math.imul(h,16777619);}return`${String(value||'').length}:${(h>>>0).toString(16)}`;}
+function wasProcessed(id,raw){return channelState(false)?.processed?.[String(id)]===fingerprint(raw);}
+function markProcessed(id,raw){const state=channelState(true);if(!state)return;state.processed[String(id)]=fingerprint(raw);const keys=Object.keys(state.processed);if(keys.length>MAX_PROCESSED)for(const key of keys.slice(0,keys.length-MAX_PROCESSED))delete state.processed[key];}
+
+async function processMessage(messageId) {
+    if(processing)return;
+    const id=Number(messageId), c=context(), message=c.chat?.[id];
+    if(!Number.isInteger(id)||!message||message.is_user||message.is_system||typeof message.mes!=='string')return;
+    const original=message.mes;if(wasProcessed(id,original))return;processing=true;
+    try{
+        const ui=parseUi(original), plain=stripPlainSystem(ui.visible);let changed=ui.found||plain.changed;
+        if(Array.isArray(message.swipes)&&Number.isInteger(message.swipe_id)&&typeof message.swipes[message.swipe_id]==='string'){
+            const a=parseUi(message.swipes[message.swipe_id]), b=stripPlainSystem(a.visible);if(a.found||b.changed){message.swipes[message.swipe_id]=b.visible;changed=true;}
+        }
+        if(typeof message.extra?.display_text==='string'){
+            const a=parseUi(message.extra.display_text), b=stripPlainSystem(a.visible);if(a.found||b.changed){message.extra.display_text=b.visible;changed=true;}
+        }
+        if(changed){message.mes=plain.visible;markProcessed(id,plain.visible);await persistChat();try{c.updateMessageBlock?.(id,message);}catch{}}
+        else markProcessed(id,original);
+        for(const n of ui.notices)notify(n.mode,n.title,n.detail,n.destination);
+        const converted=convertedNotice(plain.removed);if(converted)notify(converted.mode,converted.title,converted.detail);
+        if(ui.decision){const state=channelState(true);if(state){state.pendingDecision=ui.decision;await persistMetadata();renderPendingDecision();}}
+    }catch(error){console.error('[The System Channel] Message processing failed safely.',error);}finally{processing=false;}
+}
+function scheduleMessage(id,delay=180){clearTimeout(messageTimer);messageTimer=setTimeout(()=>void processMessage(id),delay);}
+
+function bindEvents(){
+    if(eventsBound)return true;const c=context(),e=c.eventSource,t=c.eventTypes||{};if(!e?.on)return false;eventsBound=true;
+    if(t.CHAT_CHANGED)e.on(t.CHAT_CHANGED,()=>{closeDecision();schedulePrompt(20);setTimeout(renderPendingDecision,100);});
+    if(t.MESSAGE_SENT)e.on(t.MESSAGE_SENT,()=>schedulePrompt(20));
+    if(t.MESSAGE_RECEIVED)e.on(t.MESSAGE_RECEIVED,id=>{scheduleMessage(id,180);schedulePrompt(80);});
+    if(t.MESSAGE_EDITED)e.on(t.MESSAGE_EDITED,id=>scheduleMessage(id,120));
+    if(t.MESSAGE_SWIPED)e.on(t.MESSAGE_SWIPED,id=>scheduleMessage(id,120));
+    return true;
+}
+
+async function initialize(){
+    if(initialized)return;initialized=true;
+    try{
+        if(globalThis.__SLX_SYSTEM_EXPANSION__)globalThis.__SLX_SYSTEM_EXPANSION__.unlockUI=renderUnlockDecision;
+        if(!bindEvents())for(let i=0;i<40&&!eventsBound;i++){await new Promise(r=>setTimeout(r,50));bindEvents();}
+        updatePrompt();setTimeout(renderPendingDecision,80);
+        globalThis.TheSystemUiChannel=Object.freeze({version:VERSION,refreshPrompt:updatePrompt,processMessage,showDecision,closeDecision});
+        console.info(`[The System Channel] v${VERSION} UI-only System communication active.`);
+    }catch(error){initialized=false;console.error('[The System Channel] Initialization failed safely.',error);}
+}
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>void initialize(),{once:true});else void initialize();
+
+})();
+
+/* ===== system-unlock-notification-v141.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+// The System v1.4.1 — install the Player qualification renderer before
+// expansion-ui.js / systems-expansion.js capture their expansion dependencies.
+const R = globalThis.__SLX_SYSTEM_EXPANSION__;
+
+if (R) {
+    R.V = '1.4.1';
+    R.unlockUI = function unlockWithSystemNotification(expansion) {
+        if (expansion?.unlock?.status !== 'pending') return false;
+        const localThai = expansion.unlock.language === 'th';
+        const excerpt = String(expansion.unlock.excerpt || '').trim().slice(0, 340);
+        const api = globalThis.TheSystemUiChannel;
+        if (!api?.showDecision) return false;
+        return api.showDecision({
+            id: `unlock-${String(expansion.unlock.signature || 'pending').slice(0, 120)}`,
+            mode: 'level',
+            title: localThai ? 'ตรวจพบผู้มีคุณสมบัติเป็น Player' : 'PLAYER QUALIFICATION DETECTED',
+            detail: localThai
+                ? `${excerpt ? `${excerpt}\n\n` : ''}ตรวจพบเงื่อนไขที่เข้าเกณฑ์ Player ต้องการยอมรับการเชื่อมต่อกับ The System หรือไม่?`
+                : `${excerpt ? `${excerpt}\n\n` : ''}A Player qualification condition has been detected. Accept connection to The System?`,
+            acceptLabel: localThai ? 'ยอมรับ' : 'ACCEPT',
+            declineLabel: localThai ? 'ปฏิเสธ' : 'DECLINE',
+        }, {
+            accept: () => R.accept?.(),
+            decline: async () => {
+                await R.decline?.();
+                globalThis.TheSystemExtension?.notify?.(
+                    'stat',
+                    localThai ? 'ปฏิเสธการเชื่อมต่อแล้ว' : 'PLAYER DESIGNATION DECLINED',
+                    localThai ? 'สามารถเปิด The System จากเมนู Wand ได้ภายหลัง' : 'The System can still be opened manually from the Wand menu later.',
+                    { event: true },
+                );
+            },
+        });
+    };
+}
+
+})();
+
+/* ===== expansion-ui.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+const R=globalThis.__SLX_SYSTEM_EXPANSION__;
+const {C,n,s,A,H,pct,core,ex,saveE,note,hist,action,enhance,craft,snapshot,restore,prompt,mods,accept,decline,V}=R;
+let obs=null,pause=false,pending=false;
+function filter(){const p=document.getElementById('sl-system-panel-quest');if(!p)return;let f=p.querySelector('.slx-mission-filter');const x=ex(),c=core();if(!f){f=document.createElement('nav');f.className='slx-mission-filter';(p.querySelector('.sl-module-heading')?.nextSibling?p.insertBefore(f,p.querySelector('.sl-module-heading').nextSibling):p.prepend(f));f.onclick=async e=>{const b=e.target.closest('[data-slx-mission-filter]');if(!b)return;const z=ex();z.ui.mission=b.dataset.slxMissionFilter;await saveE(z);applyFilter()}}const cnt={ongoing:A(c?.quests).filter(q=>!q.daily&&!['completed','failed','expired'].includes(String(q.status).toLowerCase())).length,completed:A(c?.quests).filter(q=>!q.daily&&String(q.status).toLowerCase()==='completed').length,failed:A(c?.quests).filter(q=>!q.daily&&['failed','expired'].includes(String(q.status).toLowerCase())).length,daily:A(c?.quests).filter(q=>q.daily).length},mk=[['ongoing','Ongoing'],['completed','Completed'],['failed','Failed'],['daily','Daily Quest']].map(([i,l])=>`<button data-slx-mission-filter="${i}" class="${x.ui.mission===i?'is-active':''}"><span>${l}</span><b>${cnt[i]}</b></button>`).join('');if(f.innerHTML!==mk)f.innerHTML=mk;applyFilter()}
+function applyFilter(){const p=document.getElementById('sl-system-panel-quest');if(!p)return;const m=ex().ui.mission;p.querySelectorAll('.sl-quest-card').forEach(q=>{const d=q.classList.contains('is-daily'),st=String(q.dataset.status||'').toLowerCase();q.hidden=!(m==='daily'?d:d?false:m==='completed'?st==='completed':m==='failed'?['failed','expired'].includes(st):!['completed','failed','expired'].includes(st))});p.querySelectorAll('.sl-quest-list').forEach(l=>l.hidden=![...l.querySelectorAll('.sl-quest-card')].some(q=>!q.hidden));p.querySelector('.sl-daily-header')?.toggleAttribute('hidden',m!=='daily');p.querySelector('.sl-empty-daily')?.toggleAttribute('hidden',m!=='daily');p.querySelectorAll('.sl-section-label').forEach(v=>v.hidden=m==='daily')}
+function cards(x,c,tab){if(tab==='progression'){const md=mods(x,c),ef=Object.fromEntries(Object.keys(md).map(k=>[k,n(c?.player?.stats?.[k])+md[k]])),eq=Object.entries(c?.equipment||{}).map(([slot,i])=>({slot,item:A(c.inventory).find(v=>v.id===i)})).filter(v=>v.item);return`<section class="slx-heading"><div><small>PLAYER DEVELOPMENT / EXTENDED SYSTEMS</small><h3>Progression</h3></div><strong>LV.${n(c.player?.level,1)}</strong></section><section class="slx-effective-stats">${Object.entries(ef).map(([k,v])=>`<article><span>${k.slice(0,3).toUpperCase()}</span><b>${v}</b><small>${md[k]>=0?'+':''}${md[k]} extended</small></article>`).join('')}</section><div class="slx-grid">${box('JOB / CLASS',x.job.name,`<p>${H(x.job.description||'Separate class progression.')}</p>${A(x.job.availableAdvancements).map(v=>`<button data-slx-job="${H(v.id)}">${H(v.name||v.id)}</button>`).join('')}`)}${box('HUNTER EVALUATION',x.rankEvaluation.currentRank,`<p>Mana: ${H(x.rankEvaluation.manaScore??'Unknown')} · ${H(x.rankEvaluation.specialDesignation||'No designation')}</p><button data-slx-action="rank">REQUEST RE-EVALUATION</button>`)}${box('SKILL EVOLUTION',x.skillEvolutions.length,A(x.skillEvolutions).map(v=>`<article><b>${H(v.skillName||v.skillId)}</b>${A(v.choices).map(q=>`<button data-slx-evolution="${H(v.skillId||v.id)}" data-choice="${H(q.id)}">${H(q.name||q.id)}</button>`).join('')}</article>`).join(''),'slx-wide')}${box('EQUIPMENT ENHANCEMENT / SETS',eq.length,eq.map(({slot,item})=>{const r=x.equipmentEnhancements[item.id]||{level:0,maxLevel:10,affixes:[]};return`<article><div><b>${H(item.name)} +${n(r.level)}</b><small>${H(slot)} · ${A(r.affixes).map(a=>a.name).join(' · ')||'No affix'}</small></div><button data-slx-enhance="${H(item.id)}">ENHANCE</button></article>`}).join('')+A(x.sets).map(v=>`<p><b>${H(v.name)}</b> ${H(A(v.bonuses).map(b=>`${b.pieces}pc ${b.description||''}`).join(' · '))}</p>`).join(''),'slx-wide')}${box('TITLES',x.titleEffects.length,A(x.titleEffects).map(v=>`<button data-slx-title="${H(v.title)}" class="${v.equipped?'is-active':''}"><b>${H(v.title)}</b><small>${H(v.description||'Effect pending')}</small></button>`).join(''))}${box('ACHIEVEMENTS',x.achievements.length,A(x.achievements).slice().reverse().map(v=>`<article><b>${H(v.name)}</b><small>${H(v.description)}</small></article>`).join(''))}${box('BALANCE',x.balance.profile,`<div class="slx-actions">${['standard','hardcore','power'].map(v=>`<button data-slx-balance="${v}" class="${x.balance.profile===v?'is-active':''}">${v.toUpperCase()}</button>`).join('')}</div><p>EXP growth ×${x.balance.expGrowth} · ${x.balance.statPointsPerLevel} stat pts/level · rewards ×${x.balance.rewardMultiplier}</p>`)}${box('CRAFTING',x.crafting.recipes.length,A(x.crafting.recipes).map(v=>`<article><div><b>${H(v.name)}</b><small>${H(A(v.requirements).map(q=>`${q.name||q.itemId} ×${q.quantity||1}`).join(' · '))}</small></div><button data-slx-craft="${H(v.id)}">CRAFT</button></article>`).join(''))}</div>`}if(tab==='combat'){const e=x.encounter;return`<section class="slx-heading"><div><small>LIVE ENCOUNTER / THREAT ANALYSIS</small><h3>Combat</h3></div><strong>${H(e?.status||'NO ENCOUNTER')}</strong></section>${e?`<section class="slx-encounter"><header><h4>${H(e.name||'Encounter')}</h4><b>ROUND ${n(e.round,1)}</b></header><div class="slx-enemies">${A(e.enemies).map(v=>`<article><div><span>${H(v.rank||'?')}-RANK · LV.${H(v.level??'?')}</span><b>${H(v.name)}</b><small>${H(v.status||'Active')} · Phase ${H(v.phase||1)}</small></div><div class="slx-hp"><span><i style="width:${pct(n(v.hp),n(v.maxHp,1))}%"></i></span><b>${n(v.hp)}/${n(v.maxHp,1)} HP</b></div><p>${H(A(v.weaknesses).length?`Weak: ${v.weaknesses.join(', ')}`:'Weakness unknown')}</p></article>`).join('')}</div></section>`:'<section class="slx-empty">No confirmed combat encounter is active.</section>'}<div class="slx-grid">${box('STATUS EFFECTS',x.statusEffects.filter(v=>v.active).length,x.statusEffects.filter(v=>v.active).map(v=>`<article class="slx-effect is-${H(v.type)}"><div><b>${H(v.name)}</b><small>${H(v.source||v.type)}</small></div><span>${v.remainingReplies==null?'Persistent':`${v.remainingReplies} replies`}</span><p>${H(v.description)}</p></article>`).join(''))}${box('SUMMON SQUADS',x.summonSquads.length,A(x.summonSquads).map(v=>`<article><div><b>${H(v.name)}</b><small>${H(v.formation||'No formation')} · ${A(v.unitIds).length} units</small></div><div class="slx-actions">${['deploy','recall','guard'].map(q=>`<button data-slx-squad="${H(v.id)}" data-command="${q}">${q.toUpperCase()}</button>`).join('')}</div></article>`).join(''))}</div>`}return`<section class="slx-heading"><div><small>WORLD INTELLIGENCE / ARCHIVE</small><h3>World</h3></div><strong>${x.gates.filter(v=>!/cleared|closed/i.test(v.status||'')).length} ACTIVE GATES</strong></section><div class="slx-grid">${box('GATES & DUNGEONS',`${x.gates.length}/${x.dungeons.length}`,A(x.gates).map(v=>{const d=x.dungeons.find(q=>q.gateId===v.id);return`<article><div><span>${H(v.rank||'?')}-RANK · ${H(v.type||v.color||'Gate')}</span><b>${H(v.name||v.id)}</b><small>${H(v.location||'Unknown')}</small></div><strong>${H(v.status||'Open')}</strong>${d?`<p>${H(d.environment||'')} · ${n(d.exploredPercent)}% explored · Boss ${H(d.bossStatus||'Unknown')}</p>`:''}</article>`}).join(''),'slx-wide')}${box('QUEST CHAINS',x.questChains.length,A(x.questChains).map(v=>`<article><b>${H(v.name)}</b><small>Chapter ${H(v.chapter||'?')} · ${A(v.questIds).length} missions</small><p>${H(v.description||'')}</p></article>`).join(''))}${box('BESTIARY',x.bestiary.length,A(x.bestiary).map(v=>`<article><div><b>${H(v.name)}</b><small>${H(v.rank||'?')}-RANK · ${H(v.species||'Unknown')}</small></div><span>${n(v.kills)} kills</span><p>${H(A(v.weaknesses).length?`Weakness: ${v.weaknesses.join(', ')}`:'Weakness unknown')}</p></article>`).join(''))}${box('HUNTERS',x.hunters.length,A(x.hunters).map(v=>`<article><div><b>${H(v.name)}</b><small>${H(v.rank||'?')}-RANK · ${H(v.guild||'Independent')}</small></div><span>${H(v.status||'Unknown')}</span></article>`).join(''))}${box('GUILDS',x.guilds.length,A(x.guilds).map(v=>`<article><div><b>${H(v.name)}</b><small>Master ${H(v.master||'Unknown')}</small></div><span>${H(v.relationship||v.status||'Unknown')}</span></article>`).join(''))}${box('SYSTEM HISTORY / SNAPSHOTS',x.history.length,`<div class="slx-snapshot-actions"><button data-slx-action="snapshot">CREATE SNAPSHOT</button>${x.snapshots.slice().reverse().map(v=>`<button data-slx-restore="${H(v.id)}">${H(v.label)}</button>`).join('')}</div><div class="slx-history">${x.history.slice(-40).reverse().map(v=>`<article><time>${H(new Date(v.at).toLocaleString())}</time><div><b>${H(v.title)}</b><small>${H(v.detail)}</small></div></article>`).join('')}</div>`,'slx-wide')}</div>`}
+function box(t,v,b,cl=''){return`<section class="slx-card ${cl}"><header><span>${H(t)}</span><b>${H(v)}</b></header><div class="slx-scroll">${b||'<p>No records.</p>'}</div></section>`}
+function tabs(){const o=document.getElementById('sl-system-overlay'),ft=o?.querySelector('[data-sl-tab]'),fp=o?.querySelector('[data-sl-panel]'),th=ft?.parentElement,ph=fp?.parentElement;if(!th||!ph)return;for(const [i,no,l] of [['progression','09','Progression'],['combat','10','Combat'],['world','11','World']]){let b=th.querySelector(`[data-slx-tab="${i}"]`);if(!b){b=document.createElement('button');b.type='button';b.className='sl-system-tab slx-system-tab';b.dataset.slxTab=i;b.dataset.slTab=`slx-${i}`;b.innerHTML=`<small>${no}</small><span>${l}</span>`;b.onclick=e=>{e.stopPropagation();openTab(i)};th.appendChild(b)}let p=ph.querySelector(`[data-slx-panel="${i}"]`);if(!p){p=document.createElement('section');p.dataset.slxPanel=i;p.dataset.slPanel=`slx-${i}`;p.className='sl-system-content slx-system-panel';p.hidden=true;ph.appendChild(p)}}const cb=th.querySelector('[data-slx-tab="combat"]'),x=ex();if(cb)cb.hidden=!(x.encounter||x.statusEffects.some(v=>v.active))}
+function openTab(i){const o=document.getElementById('sl-system-overlay');if(!o)return;o.querySelectorAll('[data-sl-tab]').forEach(b=>{const a=b.dataset.slxTab===i;b.classList.toggle('is-active',a);b.setAttribute('aria-selected',String(a))});o.querySelectorAll('[data-sl-panel]').forEach(p=>{const a=p.dataset.slxPanel===i;p.hidden=!a;p.classList.toggle('is-active',a)});panels(true)}
+function panels(force=false){const x=ex(),c=core(),sig=`${x.updatedAt}|${c?.updatedAt||''}|${n(c?.player?.level)}|${A(c?.quests).length}|${A(c?.inventory).length}`;for(const i of ['progression','combat','world']){const p=document.querySelector(`[data-slx-panel="${i}"]`);if(p&&(force||p.dataset.sig!==sig)){p.innerHTML=cards(x,c,i);p.dataset.sig=sig}}}
+function reconnect(){if(obs&&document.body){obs.disconnect();obs.observe(document.body,{childList:true,subtree:true})}}
+function render(force=false){const had=!!obs;if(had){pause=true;obs.disconnect()}try{const x=ex();if(x.unlock.status==='pending')R.unlockUI(x);tabs();filter();panels(force);const v=document.getElementById('sl-system-current-version');if(v)v.textContent=`v${V}`;if(globalThis.TheSystemExtension)globalThis.TheSystemExtension.version=V}finally{if(had){reconnect();pause=false}}}
+function schedule(){if(pause||pending)return;pending=true;queueMicrotask(()=>{pending=false;try{render()}catch(e){console.error('[System Expansion] render failed',e)}})}
+async function ui(e){const q=e.target.closest('[data-slx-unlock]');if(q)return q.dataset.slxUnlock==='accept'?accept():decline();const en=e.target.closest('[data-slx-enhance]');if(en)return enhance(en.dataset.slxEnhance);const cr=e.target.closest('[data-slx-craft]');if(cr)return craft(cr.dataset.slxCraft);const ti=e.target.closest('[data-slx-title]');if(ti){const x=ex();x.titleEffects.forEach(v=>v.equipped=v.title===ti.dataset.slxTitle);hist(x,'title','Equipped title changed',ti.dataset.slxTitle);return saveE(x)}const ev=e.target.closest('[data-slx-evolution]');if(ev){const x=ex(),r=x.skillEvolutions.find(v=>(v.skillId||v.id)===ev.dataset.slxEvolution),ch=A(r?.choices).find(v=>v.id===ev.dataset.choice);if(r&&ch){r.chosenId=ch.id;r.available=false;await saveE(x);return action('skill-evolution',`Evolve ${r.skillName||r.skillId} into ${ch.name||ch.id}.`,{skillId:r.skillId,choice:ch})}}const jb=e.target.closest('[data-slx-job]');if(jb){const x=ex(),ch=A(x.job.availableAdvancements).find(v=>v.id===jb.dataset.slxJob);if(ch){x.job.chosenAdvancementId=ch.id;await saveE(x);return action('job-advancement',`Advance job toward ${ch.name||ch.id}.`,{choice:ch})}}const sq=e.target.closest('[data-slx-squad]');if(sq)return action('summon-squad-command',`${sq.dataset.command} squad ${sq.dataset.slxSquad}.`,{squadId:sq.dataset.slxSquad,command:sq.dataset.command});const ba=e.target.closest('[data-slx-balance]');if(ba){const x=ex(),p={standard:{profile:'standard',expGrowth:1.2,statPointsPerLevel:3,rewardMultiplier:1,enhancementCostMultiplier:1},hardcore:{profile:'hardcore',expGrowth:1.3,statPointsPerLevel:2,rewardMultiplier:.8,enhancementCostMultiplier:1.35},power:{profile:'power',expGrowth:1.12,statPointsPerLevel:5,rewardMultiplier:1.4,enhancementCostMultiplier:.75}};x.balance=p[ba.dataset.slxBalance]||x.balance;return saveE(x)}const rs=e.target.closest('[data-slx-restore]');if(rs)return restore(rs.dataset.slxRestore);const ac=e.target.closest('[data-slx-action]');if(ac?.dataset.slxAction==='rank')return action('hunter-rank-evaluation','Request an official Hunter rank evaluation/re-evaluation.');if(ac?.dataset.slxAction==='snapshot')return snapshot()}
+function setupObserver(){if(obs||!document.body)return;obs=new MutationObserver(schedule);obs.observe(document.body,{childList:true,subtree:true})}
+Object.assign(R,{filter,applyFilter,cards,box,tabs,openTab,panels,reconnect,render,schedule,ui,setupObserver});
+
+})();
+
+/* ===== systems-expansion.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+const R=globalThis.__SLX_SYSTEM_EXPANSION__;
+const {C,n,A,core,ex,saveE,saveC,hist,balance,coreHistory,daily,tick,achievements,unlock,unlockUI,extract,patch,prompt,schedule,ui,norm,snapshot,restore,render,EK,V}=R;
+let init=false,processing=false;
+async function message(mi){if(processing)return;processing=true;try{await new Promise(r=>setTimeout(r,0));const ch=C().chat||[],m=Number.isInteger(mi)?ch[mi]:[...ch].reverse().find(v=>!v?.is_user&&!v?.is_system&&v?.mes),c=core();let x=ex();if(!c)return;const u=unlock(x,c,Number.isInteger(mi)?mi:ch.indexOf(m));if(u){x.unlock={status:'pending',...u};hist(x,'system','Player qualification detected',u.excerpt);await saveE(x);unlockUI(x);return}if(!c.accepted){prompt(x);return}x.unlock.status='accepted';if(m?.mes){const z=extract(m.mes);if(z.visible!==m.mes){m.mes=z.visible;if(Array.isArray(m.swipes)&&Number.isInteger(m.swipe_id)&&m.swipes[m.swipe_id]!==undefined)m.swipes[m.swipe_id]=z.visible}if(z.patch)x=patch(x,z.patch)}const bc=balance(x,c);coreHistory(x,c);const dq=await daily(x,c),tk=tick(x),ach=achievements(x,c);if(bc||dq)await saveC(c);if(bc||dq||tk||ach||m?.mes)await saveE(x);else prompt(x)}catch(e){console.error('[System Expansion] message processing failed safely',e)}finally{processing=false}}
+function events(){const c=C(),e=c.eventSource,t=c.eventTypes;if(!e?.on||!t)return;if(t.CHAT_CHANGED)e.on(t.CHAT_CHANGED,()=>{document.getElementById('slx-unlock-notice')?.remove();prompt();schedule()});if(t.MESSAGE_SENT)e.on(t.MESSAGE_SENT,()=>{prompt();schedule()});if(t.MESSAGE_RECEIVED)e.on(t.MESSAGE_RECEIVED,(...a)=>void message(...a))}
+async function waitCore(){for(let i=0;i<80;i++){if(globalThis.TheSystemExtension?.state&&globalThis.TheSystemExtension?.open)return true;await new Promise(r=>setTimeout(r,25))}return false}
+async function start(){if(init)return;init=true;try{await waitCore();C().chatMetadata||={};if(!C().chatMetadata[EK])C().chatMetadata[EK]=norm();document.addEventListener('click',e=>void ui(e));events();prompt();R.setupObserver?.();schedule();globalThis.TheSystemExpansion={version:V,state:ex,snapshot,restore,render};console.info(`[The System Expansion] v${V} loaded.`)}catch(e){init=false;console.error('[System Expansion] init failed safely',e)}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>void start(),{once:true});else void start();
+
+})();
+
+/* ===== system-credit.js (preserved module boundary) ===== */
+(() => {
+'use strict';
+/* global SillyTavern */
+
+const SYSTEM_CREDIT_CORE_KEY = 'solo_leveling_system_state';
+const SYSTEM_CREDIT_META_KEY = 'solo_leveling_system_credit_state';
+const SYSTEM_CREDIT_PROMPT_KEY = 'solo_leveling_system_credit_isolation';
+const SYSTEM_CREDIT_NAME = 'System Credit';
+const SYSTEM_CREDIT_SYMBOL = 'SC';
+
+const scContext = () => globalThis.SillyTavern?.getContext?.() || {};
+const scNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : fallback;
+let scReconciling = false;
+let scLocalTimer = null;
+
+function scCore() {
+    return scContext().chatMetadata?.[SYSTEM_CREDIT_CORE_KEY] || null;
+}
+
+function scState() {
+    const current = scContext();
+    const saved = current.chatMetadata?.[SYSTEM_CREDIT_META_KEY];
+    if (saved && typeof saved === 'object') {
+        return {
+            name: SYSTEM_CREDIT_NAME,
+            symbol: SYSTEM_CREDIT_SYMBOL,
+            amount: scNumber(saved.amount, 1000),
+            updatedAt: String(saved.updatedAt || ''),
+            source: String(saved.source || 'stored'),
+        };
+    }
+    const core = scCore();
+    return {
+        name: SYSTEM_CREDIT_NAME,
+        symbol: SYSTEM_CREDIT_SYMBOL,
+        amount: scNumber(core?.currency?.amount, 1000),
+        updatedAt: '',
+        source: 'migration',
+    };
+}
+
+async function scSave(state, source = 'system-credit') {
+    const current = scContext();
+    if (!current.getCurrentChatId?.()) return false;
+    current.chatMetadata ||= {};
+    current.chatMetadata[SYSTEM_CREDIT_META_KEY] = {
+        name: SYSTEM_CREDIT_NAME,
+        symbol: SYSTEM_CREDIT_SYMBOL,
+        amount: scNumber(state.amount, 0),
+        updatedAt: new Date().toISOString(),
+        source,
+    };
+    await current.saveMetadata?.();
+    return true;
+}
+
+async function scMirrorToCore(state, source = 'system-credit-mirror') {
+    const current = scContext();
+    const core = scCore();
+    if (!core || !current.getCurrentChatId?.()) return false;
+    const amount = scNumber(state.amount, 0);
+    const changed = core.currency?.name !== SYSTEM_CREDIT_NAME || core.currency?.symbol !== SYSTEM_CREDIT_SYMBOL || scNumber(core.currency?.amount, amount) !== amount;
+    core.currency = { name: SYSTEM_CREDIT_NAME, symbol: SYSTEM_CREDIT_SYMBOL, amount };
+    if (changed) {
+        core.updatedAt = new Date().toISOString();
+        core.updateSource = source;
+        await current.saveMetadata?.();
+    }
+    return changed;
+}
+
+function scExplicitSystemEconomy(text) {
+    const value = String(text || '');
+    return /\b(?:system\s*credits?|system\s*currency|system\s*shop|SC\s*(?:credits?|currency)?|credits?\s*\(SC\))\b/i.test(value)
+        || /(?:เครดิตระบบ|เครดิตของระบบ|เงินระบบ|สกุลเงินระบบ|ร้านค้าระบบ|แต้มระบบ)/i.test(value);
+}
+
+function scLatestTranscript(messageId) {
+    const chat = scContext().chat || [];
+    const assistant = Number.isInteger(messageId) ? chat[messageId] : [...chat].reverse().find(message => !message?.is_user && !message?.is_system && message?.mes);
+    const index = Number.isInteger(messageId) ? messageId : chat.indexOf(assistant);
+    const user = [...chat.slice(0, index >= 0 ? index : chat.length)].reverse().find(message => message?.is_user && !message?.is_system && message?.mes);
+    return `${user?.mes || ''}\n${assistant?.mes || ''}`.replace(/<!--[\s\S]*?-->/g, ' ');
+}
+
+function scPrompt() {
+    const current = scContext();
+    if (typeof current.setExtensionPrompt !== 'function') return;
+    const core = scCore();
+    const active = Boolean(current.getCurrentChatId?.() && core?.accepted);
+    const prompt = `<system_credit_isolation>
+SYSTEM CREDIT IS A SEPARATE GAME CURRENCY. The core currency object belongs ONLY to System Credit and is permanently named "System Credit" with symbol "SC".
+Never change currency.amount, currency.name, or currency.symbol for ordinary real-world or narrative money such as Won/KRW/₩, Dollar/USD/$, Baht/THB/฿, Yen/JPY/¥, Yuan/RMB, Euro/EUR/€, Pound/GBP/£, gold used as normal-world money, cash, bank balances, salary, wallet money, or purchases outside the System Shop.
+Real-world money belongs to the role-play and may be tracked by other extensions such as Pocket Phone. This extension must not copy, convert, mirror, or add that money to System Credit.
+Only update System Credit when the story explicitly identifies the value as System Credit/System Credits/SC, a System-issued credit reward or penalty, or a purchase/enhancement made through the System Shop.
+Do not convert real currency into SC unless the role-play explicitly describes a System conversion mechanic and confirms the resulting System Credit amount.
+</system_credit_isolation>`;
+    current.setExtensionPrompt(SYSTEM_CREDIT_PROMPT_KEY, active ? prompt : '', 1, 1, false, 0);
+}
+
+async function scInitialize() {
+    const current = scContext();
+    if (!current.getCurrentChatId?.()) {
+        scPrompt();
+        return;
+    }
+    const hadLedger = Boolean(current.chatMetadata?.[SYSTEM_CREDIT_META_KEY]);
+    const state = scState();
+    if (!hadLedger) await scSave(state, 'initial-credit-migration');
+    await scMirrorToCore(state, 'system-credit-initialization');
+    scPrompt();
+}
+
+async function scReconcileAssistant(messageId) {
+    if (scReconciling) return;
+    scReconciling = true;
+    try {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const current = scContext();
+        const core = scCore();
+        if (!current.getCurrentChatId?.() || !core?.accepted) return;
+        const ledger = scState();
+        const coreAmount = scNumber(core.currency?.amount, ledger.amount);
+        if (scExplicitSystemEconomy(scLatestTranscript(messageId))) {
+            ledger.amount = coreAmount;
+            await scSave(ledger, 'confirmed-system-economy');
+            await scMirrorToCore(ledger, 'confirmed-system-economy');
+        } else {
+            await scMirrorToCore(ledger, 'real-money-isolation');
+        }
+        scPrompt();
+    } catch (error) {
+        console.warn('[System Credit] Reconciliation skipped safely.', error);
+    } finally {
+        scReconciling = false;
+    }
+}
+
+function scScheduleLocalAdoption(source) {
+    clearTimeout(scLocalTimer);
+    scLocalTimer = setTimeout(async () => {
+        try {
+            const core = scCore();
+            if (!core?.accepted) return;
+            const ledger = scState();
+            ledger.amount = scNumber(core.currency?.amount, ledger.amount);
+            await scSave(ledger, source);
+            await scMirrorToCore(ledger, source);
+            scPrompt();
+        } catch (error) {
+            console.warn('[System Credit] Local balance sync skipped safely.', error);
+        }
+    }, 180);
+}
+
+function scBindEvents() {
+    const current = scContext();
+    const source = current.eventSource;
+    const types = current.eventTypes;
+    if (source?.on && types) {
+        if (types.CHAT_CHANGED) source.on(types.CHAT_CHANGED, () => void scInitialize());
+        if (types.MESSAGE_SENT) source.on(types.MESSAGE_SENT, () => scPrompt());
+        if (types.MESSAGE_RECEIVED) source.on(types.MESSAGE_RECEIVED, (...args) => void scReconcileAssistant(...args));
+    }
+
+    document.addEventListener('click', event => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+        if (target.closest('[data-sl-buy]')) scScheduleLocalAdoption('system-shop-purchase');
+        else if (target.closest('[data-slx-enhance]')) scScheduleLocalAdoption('system-enhancement');
+    });
+
+    document.addEventListener('submit', event => {
+        if (event.target?.id === 'sl-admin-form') scScheduleLocalAdoption('administrator-credit-edit');
+    });
+}
+
+async function scStart() {
+    try {
+        await scInitialize();
+        scBindEvents();
+        globalThis.TheSystemCredit = {
+            state: scState,
+            reconcile: scReconcileAssistant,
+            version: '1.4.1',
+        };
+        console.info('[System Credit] Isolated System Credit ledger loaded.');
+    } catch (error) {
+        console.error('[System Credit] Initialization failed safely.', error);
+    }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => void scStart(), { once: true });
+else void scStart();
+
+})();
