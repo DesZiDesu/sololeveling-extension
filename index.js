@@ -99,7 +99,9 @@ const DEFAULT_STATE = Object.freeze({
     administratorMode: false,
     profile: { image: '', positionX: 50, positionY: 50, zoom: 1 },
     player: {
-        name: 'System User', title: 'Unawakened Hunter', titles: [], job: 'None', level: 1, rank: 'E',
+        name: 'System User', title: 'Unawakened Hunter', titles: [], titleHistory: [], achievements: [], job: 'None', jobHistory: [], jobChangeHistory: [],
+        jobChangeOffer: { active: false, id: '', kind: 'job', name: '', description: '', sourceLevel: 0, questId: '', acceptedName: '' },
+        level: 1, rank: 'E',
         experience: 0, experienceRequired: 100, hp: 100, maxHp: 100, mp: 50, maxMp: 50,
         fatigue: 0, condition: 'Stable', statPoints: 0,
         stats: { strength: 10, agility: 10, vitality: 10, intelligence: 10, perception: 10 },
@@ -157,6 +159,26 @@ function html(value) { return String(value ?? '').replaceAll('&', '&amp;').repla
 function number(value, fallback, min = -Infinity, max = Infinity) { const parsed = Number(value); return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback; }
 function text(value, fallback = '', max = 240) { const result = String(value ?? fallback).trim(); return (result || fallback).slice(0, max); }
 function percent(value, maximum) { return Math.max(0, Math.min(100, Math.round((number(value, 0) / Math.max(1, number(maximum, 1))) * 100))); }
+function derivedPlayerMetrics(player = {}) {
+    const stats = player.stats || {};
+    const level = Math.max(1, number(player.level, 1));
+    const vitality = number(stats.vitality, 10, 0, 999999);
+    const strength = number(stats.strength, 10, 0, 999999);
+    const intelligence = number(stats.intelligence, 10, 0, 999999);
+    const perception = number(stats.perception, 10, 0, 999999);
+    const maxHp = Math.max(1, Math.round(100 + (level - 1) * 20 + (vitality - 10) * 12 + (strength - 10) * 2));
+    const maxMp = Math.max(1, Math.round(50 + (level - 1) * 10 + (intelligence - 10) * 8 + (perception - 10) * 2));
+    return {
+        maxHp, maxMp,
+        physicalPower: Math.max(0, Math.round(strength * 2 + vitality)),
+        movement: Math.max(0, Math.round(number(stats.agility, 10, 0, 999999) * 2 + perception)),
+        manaControl: Math.max(0, Math.round(intelligence * 2 + perception)),
+        awareness: Math.max(0, Math.round(perception * 2 + intelligence)),
+    };
+}
+function uniqueTextList(values, maximum = 100) {
+    return [...new Set((Array.isArray(values) ? values : []).map(value => text(value, '', 100)).filter(Boolean))].slice(0, maximum);
+}
 function currentLanguage() { const selected = getSettings().language; if (selected === 'th' || selected === 'en') return selected; const locale = text(context().locale || globalThis.navigator?.language, 'en', 20).toLowerCase(); return locale.startsWith('th') ? 'th' : 'en'; }
 function t(key) { return I18N[currentLanguage()]?.[key] || I18N.en[key] || key; }
 function initials(value) { return text(value, 'Player', 100).split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase() || 'P'; }
@@ -317,17 +339,20 @@ function normalizeItem(source = {}, fallbackCategory = 'Misc') {
     const mechanicsText = `${source.name || ''} ${category} ${source.description || ''} ${effectSource.description || ''}`.toLowerCase();
     const slot = text(source.slot, '', 30) || inferSlot(category, source.name, source.description);
     const consumable = /potion|consumable|food|elixir|antidote|medicine|cure|detox|ยา|โพชั่น|อาหาร|ถอนพิษ|รักษา/.test(mechanicsText);
+    const weapon = slot === 'weapon' || /weapon|sword|blade|dagger|bow|spear|staff|wand|axe|gun|ดาบ|อาวุธ|มีด|ธนู/.test(mechanicsText);
+    const tool = text(source.tool, weapon ? 'weapon' : slot ? 'equipment' : consumable ? 'consumable' : 'misc', 30).toLowerCase();
     const statSource = effectSource.stats && typeof effectSource.stats === 'object' ? effectSource.stats : {};
     return {
         id: text(source.id, uid('item'), 100), name: text(source.name, 'Unknown Item', 100), category,
         rarity: text(source.rarity, 'Common', 30), quantity: number(source.quantity, 1, 0, 99999),
         description: text(source.description, 'No description recorded.', 1200), price: number(source.price, 0, 0, 999999999),
-        slot, usable: Boolean(source.usable || consumable || (!slot && (effectSource.hp || effectSource.mp || effectSource.cure || effectSource.detoxify))),
+        slot, tool: weapon ? 'weapon' : tool, usable: Boolean(source.usable || consumable || (!slot && (effectSource.hp || effectSource.mp || effectSource.cure || effectSource.detoxify))),
         effects: {
             hp: number(effectSource.hp, 0, -999999, 999999), mp: number(effectSource.mp, 0, -999999, 999999),
             fatigue: number(effectSource.fatigue, 0, -999999, 999999),
             cure: Boolean(effectSource.cure || effectSource.cleanse || /cure|รักษา/.test(mechanicsText)),
             detoxify: Boolean(effectSource.detoxify || effectSource.detox || effectSource.antidote || /detox|antidote|ถอนพิษ/.test(mechanicsText)),
+            fullRecovery: Boolean(effectSource.fullRecovery || effectSource.full_recovery),
             stats: Object.fromEntries(Object.keys(DEFAULT_STATE.player.stats).map(stat => [stat, number(statSource[stat], 0, -999999, 999999)])),
             description: text(effectSource.description, '', 500),
         },
@@ -357,12 +382,19 @@ function localQuestRewardOptions(source = {}) {
     const rankScale = Math.max(1, Math.min(8, Math.ceil(experience / 150))); const rarity = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'][Math.min(4, Math.floor(rankScale / 2))];
     const statKeys = ['strength', 'agility', 'vitality', 'intelligence', 'perception']; const stat = statKeys[seed % statKeys.length];
     const thai = /[\u0E00-\u0E7F]/.test(title) || currentLanguage() === 'th';
+    const daily = Boolean(source.daily || String(source.type).toLowerCase().includes('daily'));
     const hp = 80 + rankScale * 45; const mp = 55 + rankScale * 35; const statGain = Math.max(1, Math.ceil(rankScale / 3));
     const rewards = [
         { id: `${id}-recovery`, type: 'item', name: thai ? 'ยาฟื้นฟูระบบ' : 'System Recovery Vial', amount: 1, item: { id: `${id}-recovery-item`, name: thai ? 'ยาฟื้นฟูระบบ' : 'System Recovery Vial', category: 'Potion', rarity, quantity: 1, description: thai ? `รางวัลภารกิจที่ฟื้นฟู HP ${hp} หน่วย` : `A mission-grade restorative that recovers ${hp} HP.`, price: 0, usable: true, effects: { hp, mp: 0, fatigue: 0, cure: false, detoxify: false, stats: {}, description: `Restore ${hp} HP` } } },
         { id: `${id}-mana`, type: 'item', name: thai ? 'สารเร่งมานา' : 'Mana Resonance Ampoule', amount: 1, item: { id: `${id}-mana-item`, name: thai ? 'สารเร่งมานา' : 'Mana Resonance Ampoule', category: 'Potion', rarity, quantity: 1, description: thai ? `รางวัลภารกิจที่ฟื้นฟู MP ${mp} หน่วย` : `A condensed mana ampoule that recovers ${mp} MP.`, price: 0, usable: true, effects: { hp: 0, mp, fatigue: 0, cure: false, detoxify: false, stats: {}, description: `Restore ${mp} MP` } } },
         { id: `${id}-growth`, type: 'item', name: thai ? 'ผลึกเติบโต' : 'Growth Crystal', amount: 1, item: { id: `${id}-growth-item`, name: thai ? 'ผลึกเติบโต' : 'Growth Crystal', category: 'Consumable', rarity, quantity: 1, description: thai ? `ผลึกรางวัลที่เพิ่ม ${stat.toUpperCase()} ${statGain} หน่วย` : `A mission crystal that permanently grants ${statGain} ${stat.toUpperCase()}.`, price: 0, usable: true, effects: { hp: 0, mp: 0, fatigue: 0, cure: false, detoxify: false, stats: { [stat]: statGain }, description: `${stat.toUpperCase()} +${statGain}` } } },
     ];
+    if (daily && rewards[0]?.item) {
+        rewards[0].name = thai ? 'ฟื้นฟูเต็มรูปแบบ' : 'Full Recovery';
+        rewards[0].item.name = rewards[0].name;
+        rewards[0].item.description = thai ? 'ฟื้นฟู HP และ MP เต็มจำนวน และล้างความเหนื่อยล้า/พิษ' : 'Fully restores HP and MP, clears fatigue, and stabilizes the Player.';
+        rewards[0].item.effects = { ...rewards[0].item.effects, hp: 0, mp: 0, fatigue: 0, cure: true, detoxify: true, fullRecovery: true, description: 'FULL HP / MP RESTORE' };
+    }
     return rewards.map((reward, index) => normalizeReward(reward, index)).filter(option => option?.item);
 }
 
@@ -378,8 +410,14 @@ function normalizeQuest(source = {}) {
     const suppliedOptions = rawOptions.map((option, index) => normalizeReward((option?.item || option?.type === 'item') ? option : { id: option?.id, type: 'item', name: option?.name, amount: option?.quantity || 1, item: option }, index)).filter(option => option?.item).slice(0, 3);
     const completedObjectives = objectives.filter(objective => objective.completed).length;
     const questIdentity = { id: text(source.id, uid('quest'), 100), title: text(source.title || source.name, 'Unnamed Quest', 120) };
+    const daily = Boolean(source.daily || String(source.type).toLowerCase().includes('daily'));
     const automaticOptions = localQuestRewardOptions({ ...source, ...questIdentity });
     const rewardOptions = [...suppliedOptions, ...automaticOptions].filter((option, index, list) => list.findIndex(other => other.item.name.toLocaleLowerCase() === option.item.name.toLocaleLowerCase()) === index).slice(0, 3);
+    if (daily && rewardOptions[0]?.item) {
+        rewardOptions[0].name = currentLanguage() === 'th' ? 'ฟื้นฟูเต็มรูปแบบ' : 'Full Recovery';
+        rewardOptions[0].item.name = rewardOptions[0].name;
+        rewardOptions[0].item.effects = { ...rewardOptions[0].item.effects, hp: 0, mp: 0, fatigue: 0, cure: true, detoxify: true, fullRecovery: true, description: 'FULL HP / MP RESTORE' };
+    }
     return {
         ...questIdentity,
         type: text(source.type, 'Normal', 40), status: text(source.status, 'Active', 40),
@@ -391,7 +429,9 @@ function normalizeQuest(source = {}) {
         rewardOptions,
         claimedRewardId: text(source.claimedRewardId, '', 100),
         rewardClaimed: Boolean(source.rewardClaimed),
-        daily: Boolean(source.daily || String(source.type).toLowerCase().includes('daily')),
+        daily,
+        currencyReward: number(source.currencyReward ?? source.systemCoins ?? source.coins, daily ? 50 : 100, 0, 999999999),
+        currencyAwarded: Boolean(source.currencyAwarded),
         deadline: text(source.deadline, 'Before the daily reset', 120),
         penalty: source.penalty && typeof source.penalty === 'object' ? {
             hp: number(source.penalty.hp, 0, 0, 999999), mp: number(source.penalty.mp, 0, 0, 999999),
@@ -486,18 +526,41 @@ function normalizeState(source = {}, fallback = DEFAULT_STATE) {
     base.administratorMode = Boolean(source.administratorMode);
     base.profile = normalizeImage(source.profile);
     const player = source.player && typeof source.player === 'object' ? source.player : {};
+    const priorPlayer = base.player;
     base.player = { ...base.player, ...player, stats: { ...base.player.stats, ...(player.stats && typeof player.stats === 'object' ? player.stats : {}) } };
     if (base.player.stats.sense !== undefined && base.player.stats.perception === DEFAULT_STATE.player.stats.perception) base.player.stats.perception = base.player.stats.sense;
+    const previousHp = number(base.player.hp, DEFAULT_STATE.player.hp, 0, 999999999);
+    const previousMaxHp = number(base.player.maxHp, DEFAULT_STATE.player.maxHp, 1, 999999999);
+    const previousMp = number(base.player.mp, DEFAULT_STATE.player.mp, 0, 999999999);
+    const previousMaxMp = number(base.player.maxMp, DEFAULT_STATE.player.maxMp, 1, 999999999);
+    const wasFullHp = previousHp >= previousMaxHp;
+    const wasFullMp = previousMp >= previousMaxMp;
     for (const key of ['level', 'experience', 'experienceRequired', 'hp', 'maxHp', 'mp', 'maxMp', 'fatigue', 'statPoints']) base.player[key] = number(base.player[key], DEFAULT_STATE.player[key], 0, 999999999);
     base.player.level = Math.max(1, base.player.level); base.player.experienceRequired = Math.max(1, base.player.experienceRequired); base.player.maxHp = Math.max(1, base.player.maxHp); base.player.maxMp = Math.max(1, base.player.maxMp);
     for (const key of ['rank', 'condition', 'name', 'title', 'job']) base.player[key] = text(base.player[key], DEFAULT_STATE.player[key], 100);
-    base.player.titles = Array.isArray(player.titles) ? player.titles.map(value => text(value, '', 100)).filter(Boolean).slice(0, 100) : [];
+    base.player.titles = uniqueTextList([...(Array.isArray(priorPlayer.titles) ? priorPlayer.titles : []), ...(Array.isArray(player.titles) ? player.titles : [])]);
+    base.player.titleHistory = uniqueTextList([...(Array.isArray(priorPlayer.titleHistory) ? priorPlayer.titleHistory : []), ...(Array.isArray(player.titleHistory) ? player.titleHistory : [])]);
+    base.player.achievements = uniqueTextList([...(Array.isArray(priorPlayer.achievements) ? priorPlayer.achievements : []), ...(Array.isArray(player.achievements) ? player.achievements : [])]);
+    base.player.jobHistory = uniqueTextList([...(Array.isArray(priorPlayer.jobHistory) ? priorPlayer.jobHistory : []), ...(Array.isArray(player.jobHistory) ? player.jobHistory : [])]);
+    base.player.jobChangeHistory = [...(Array.isArray(priorPlayer.jobChangeHistory) ? priorPlayer.jobChangeHistory : []), ...(Array.isArray(player.jobChangeHistory) ? player.jobChangeHistory : [])].filter(entry => entry && typeof entry === 'object').slice(-50);
+    const incomingJobOffer = player.jobChangeOffer ?? priorPlayer.jobChangeOffer;
+    base.player.jobChangeOffer = incomingJobOffer && typeof incomingJobOffer === 'object'
+        ? { ...DEFAULT_STATE.player.jobChangeOffer, ...incomingJobOffer, active: Boolean(incomingJobOffer.active), sourceLevel: number(incomingJobOffer.sourceLevel, 0, 0, 999999) }
+        : { ...DEFAULT_STATE.player.jobChangeOffer };
+    if (base.player.title && !['Unawakened Hunter', 'None'].includes(base.player.title)) base.player.titleHistory = uniqueTextList([...base.player.titleHistory, base.player.title]);
+    if (base.player.title && !['Unawakened Hunter', 'None'].includes(base.player.title)) base.player.titles = uniqueTextList([...base.player.titles, base.player.title]);
+    if (base.player.job && !['None', 'Unemployed'].includes(base.player.job)) base.player.jobHistory = uniqueTextList([...base.player.jobHistory, base.player.job]);
     const legacyGold = number(player.gold, DEFAULT_STATE.currency.amount, 0, 999999999);
     const currency = source.currency && typeof source.currency === 'object' ? source.currency : {};
     base.currency = { name: text(currency.name, DEFAULT_STATE.currency.name, 50), symbol: text(currency.symbol, DEFAULT_STATE.currency.symbol, 12), amount: number(currency.amount, legacyGold, 0, 999999999) };
     delete base.player.gold;
     base.scene = normalizeScene(source.scene);
     for (const stat of Object.keys(DEFAULT_STATE.player.stats)) base.player.stats[stat] = number(base.player.stats[stat], 10, 0, 999999);
+    const derived = derivedPlayerMetrics(base.player);
+    base.player.maxHp = derived.maxHp;
+    base.player.maxMp = derived.maxMp;
+    base.player.hp = wasFullHp ? derived.maxHp : Math.min(derived.maxHp, previousHp);
+    base.player.mp = wasFullMp ? derived.maxMp : Math.min(derived.maxMp, previousMp);
     base.skills = Array.isArray(source.skills) ? source.skills.map(normalizeSkill).filter(Boolean).slice(0, 300) : [];
     base.shadowArmy = Array.isArray(source.shadowArmy) ? source.shadowArmy.map(entry => normalizeShadow(entry, base.skills)).filter(Boolean).slice(0, 1000) : [];
     base.quests = Array.isArray(source.quests) ? source.quests.map(normalizeQuest).filter(Boolean).slice(0, 300) : [];
@@ -558,6 +621,59 @@ function settleSkillEffects(state, previous, source) {
 
 function scheduleAuraExpiry() { clearTimeout(auraTimer); auraTimer = null; }
 
+function createJobChangeOffer(state) {
+    const stats = state.player.stats || {};
+    const strongest = Object.entries(stats).sort((a, b) => number(b[1], 0) - number(a[1], 0))[0]?.[0] || 'strength';
+    const names = {
+        strength: ['Warbound Executioner', 'Ironfang Vanguard'],
+        agility: ['Phantom Strider', 'Tempest Reaver'],
+        vitality: ['Aegis Colossus', 'Ironheart Bastion'],
+        intelligence: ['Aether Strategist', 'Arcane Overlord'],
+        perception: ['Void-Sight Hunter', 'Astral Tracker'],
+    };
+    const pool = names[strongest] || names.strength;
+    const index = Math.abs(stableQuestHash((state.player.name || 'player') + ':' + state.player.level)) % pool.length;
+    const name = pool[index];
+    const thai = currentLanguage() === 'th';
+    return {
+        active: true,
+        id: 'job-change-level-50',
+        kind: 'job',
+        name,
+        description: thai ? 'การเปลี่ยนอาชีพเมื่อถึงเลเวล 50 เลือกชื่อใหม่ได้' : 'A Level 50 Job Change is available. Edit the name before confirming.',
+        sourceLevel: 50,
+        questId: 'job-change-level-50',
+        acceptedName: '',
+    };
+}
+
+function ensureLevel50JobChange(state) {
+    if (state.player.level < 50) return false;
+    let changed = false;
+    const offer = state.player.jobChangeOffer || {};
+    if (!offer.active && !state.player.jobChangeHistory.length) {
+        state.player.jobChangeOffer = createJobChangeOffer(state);
+        changed = true;
+    }
+    const currentOffer = state.player.jobChangeOffer;
+    if (currentOffer?.active && !state.quests.some(quest => quest.id === currentOffer.questId)) {
+        const quest = normalizeQuest({
+            id: currentOffer.questId || 'job-change-level-50',
+            title: currentLanguage() === 'th' ? 'ภารกิจเปลี่ยนอาชีพระดับ 50' : 'Level 50 Job Change',
+            type: 'Job Change',
+            status: 'Active',
+            description: currentOffer.description,
+            objectives: [{ id: 'job-selection', label: currentLanguage() === 'th' ? 'เลือกและยืนยันชื่ออาชีพใหม่' : 'Choose and confirm the new job name', current: 0, goal: 1, completed: false }],
+            experienceReward: 0,
+            currencyReward: 500,
+            rewardOptions: localQuestRewardOptions({ id: 'job-change-level-50', title: currentOffer.name, experienceReward: 100 }),
+        });
+        if (quest) state.quests.push(quest);
+        changed = true;
+    }
+    return changed;
+}
+
 function settlePlayerProgression(state) {
     let levelsGained = 0;
     while (state.player.experience >= state.player.experienceRequired && levelsGained < 1000) {
@@ -567,6 +683,7 @@ function settlePlayerProgression(state) {
         state.player.experienceRequired = Math.max(1, Math.ceil(state.player.experienceRequired * 1.2));
         levelsGained += 1;
     }
+    ensureLevel50JobChange(state);
     return levelsGained;
 }
 
@@ -583,11 +700,22 @@ function settleQuestPenalties(state) {
     return state;
 }
 
+function settleQuestCurrency(state, previous) {
+    for (const quest of state.quests) {
+        const old = previous.quests.find(entry => entry.id === quest.id);
+        if (!old || String(old.status).toLowerCase() === 'completed' || String(quest.status).toLowerCase() !== 'completed' || quest.currencyAwarded) continue;
+        quest.currencyAwarded = true;
+        state.currency.amount += number(quest.currencyReward, quest.daily ? 50 : 100, 0, 999999999);
+    }
+    return state;
+}
+
 async function persistState(nextState, source = 'ui-action', options = {}) {
     const currentContext = context();
     if (!currentContext.getCurrentChatId?.()) { systemNotice('warning', 'Open a chat before changing The System.'); return false; }
     const previous = getState();
     const next = settleQuestPenalties(normalizeState(nextState, previous));
+    settleQuestCurrency(next, previous);
     settleSkillEffects(next, previous, source);
     settlePlayerProgression(next);
     next.updatedAt = new Date().toISOString(); next.updateSource = source;
@@ -607,7 +735,7 @@ function hasUserReply(currentContext = context()) { return Array.isArray(current
 
 function stateForPrompt(state) {
     return {
-        player: state.player, skills: state.skills.map(({ icon, ...skill }) => skill), shadowArmy: state.shadowArmy.map(({ portrait, ...unit }) => unit), summonCapacity: summonCapacity(state), summonOccupied: activeSummons(state).length, quests: state.quests,
+        player: { ...state.player, derived: derivedPlayerMetrics(state.player) }, skills: state.skills.map(({ icon, ...skill }) => skill), shadowArmy: state.shadowArmy.map(({ portrait, ...unit }) => unit), summonCapacity: summonCapacity(state), summonOccupied: activeSummons(state).length, quests: state.quests,
         inventory: state.inventory.map(({ icon, ...item }) => item), equipment: state.equipment,
         shop: state.shop.map(({ icon, ...item }) => item), currency: state.currency, scene: state.scene,
         pendingActions: state.pendingActions,
@@ -620,10 +748,15 @@ function patchInstructions() {
         '<!--solo_system_patch:{"ops":[["inc","player.experience",5],["upsert","quests",{"id":"daily-training","title":"Daily Training","status":"Active","objectives":[{"id":"pushups","label":"Push-ups","current":20,"goal":100,"unit":"reps","completed":false}],"experienceReward":100,"rewardOptions":[{"id":"reward-potion","type":"item","name":"Recovery Potion","amount":1,"item":{"id":"recovery-potion","name":"Recovery Potion","category":"Potion","rarity":"Common","quantity":1,"description":"Restores HP.","price":100,"slot":"","usable":true,"effects":{"hp":50,"mp":0,"fatigue":0,"cure":false,"detoxify":false,"stats":{},"description":"Restore 50 HP"}}}]}],["upsert","skills",{"id":"shadow-extraction","name":"Shadow Extraction","rank":"S","type":"Active","level":1,"mastery":10,"masteryRequired":100,"activationRequired":true}]],"summary":"Training recorded."}-->',
         'Allowed operations: set, inc, upsert, delete. Arrays are addressed by their canonical path and entries by id.',
         'Track confirmed level, experience, HP, MP, stats, statPoints, currency, titles, skills, quests, inventory, equipment, shop, shadowArmy, and every scene field.',
+        'Derived Player resources are deterministic: max HP = 100 + (level - 1) × 20 + (vitality - 10) × 12 + (strength - 10) × 2; max MP = 50 + (level - 1) × 10 + (intelligence - 10) × 8 + (perception - 10) × 2. Treat these derived maxima and physicalPower/movement/manaControl/awareness values as authoritative. Do not manually set maxHp or maxMp to contradict the attributes; increase the relevant stat instead. Award damage/healing against the derived maxima.',
+        'Remember Player identity across replies: player.job is the current job, player.jobHistory preserves previous jobs, player.title is the current title, player.titleHistory preserves prior titles, and player.achievements preserves earned achievement names. Keep stable names and do not overwrite these histories with empty arrays.',
+        'When the Player reaches Level 50, create or update player.jobChangeOffer with a unique job or title name, kind, description, sourceLevel:50, questId:"job-change-level-50", and active:true; also upsert the Level 50 Job Change quest. Do not silently select the name—the extension shows a confirmation window where the Player can edit and confirm it.',
+        'Every confirmed monster kill grants Player EXP and System Coins. Record each kill by increasing the matching bestiary entry kills count and include rank/level; the extension deterministically awards the EXP and currency from that kill delta. Do not manually award a second EXP or currency amount for the same kill. Every quest completion grants System Coins through the quest currencyReward field; do not award ordinary real-world money.',
         'A quest must contain objectives as an array of {id,label,current,goal,unit,completed}. Keep every objective and update its current value independently (for example push-ups 20/100, sit-ups 40/100, running 3/10 km). Never replace objective details with only one total progress number.',
         'Every quest must have experienceReward greater than 0 and rewardOptions containing exactly 3 different item rewards. Each option is {id,type:"item",name,amount,item:{complete item}}. When every objective is complete, set status:"Completed" but leave rewardClaimed:false and do not add EXP or items; the user chooses exactly one item and claims it with the guaranteed EXP in the UI.',
         'Daily quests use daily:true, a deadline string, and penalty {hp,mp,currency,experience,description}. Mark status Failed or Expired only when the story confirms the deadline was missed; the extension applies that penalty once.',
-        'When the user asks to view, search, open, or refill the System Shop in main chat, populate shop with coherent complete items and prices. Equippable items require slot weapon|head|chest|hands|legs|feet|accessory. Consumables require usable:true and meaningful effects using hp, mp, fatigue (negative reduces fatigue), cure, detoxify, stats, and description. Never create an inert item or merely describe a shop without updating shop state.',
+        'Every daily quest must include exactly 3 selectable item rewards, with one stored Full Recovery item using effects:{fullRecovery:true,cure:true,detoxify:true,fatigue:0}. Full Recovery restores the Player to derived max HP and max MP when consumed later; it is not applied immediately on quest completion.',
+        'When the user asks to view, search, open, or refill the System Shop in main chat, populate shop with coherent complete items and prices. Every item must include tool:"weapon" when it is a weapon, and a correct slot:"weapon" for weapons; non-weapons use tool:"equipment", "consumable", or "misc" as appropriate. Equippable items require slot weapon|head|chest|hands|legs|feet|accessory. Consumables require usable:true and meaningful effects using hp, mp, fatigue (negative reduces fatigue), cure, detoxify, fullRecovery, stats, and description. Never create an inert item or merely describe a shop without updating shop state.',
         'Skills use {id,name,rank,type,description,level,mastery,masteryRequired,mastered,uses,lastUsedAt,activationRequired,activationWords:[]}. type must be exactly Active, Passive, Buff, Summoning, or Utility. Increase mastery when a skill is successfully used. When mastery reaches masteryRequired, cap it there and set mastered:true; level remains a separate proficiency value that rises only when training or story progression confirms it.',
         'Voice-activated skills must not activate unless the user says one of that skill\'s saved activationWords. A skill can have multiple phrases. If activationRequired is true and activationWords is empty, do not activate it; direct the user to configure phrases in the Skills tab.',
         'Any summoning skill uses summoning:true and system:"summoning"; Shadow Extraction specifically uses system:"shadow-army". Storage capacity is summonCapacityBase + (level - 1) × summonCapacityPerLevel for every owned summoning skill. Never add a new active summon when capacity is full. When summoning or extraction succeeds, upsert shadowArmy with {id,name,rank,level,class,species,race,status:"Stored"|"Deployed",ownerSkillId,kind:"Shadow"|"Summon",manaCost,condition,hp,maxHp,mp,maxMp,experience,experienceRequired,summonedAt,description,stats:{strength,agility,vitality,intelligence,perception},abilities:[]}. Every active summon has trackable HP, MP, condition, progression, and individual stats; update them when combat or training confirms a change. A dismissed:true unit is permanently released and must never return unless the story explicitly creates a different new soul with a new id. Portrait images are controlled only by the user interface and must never be generated into the patch.',
@@ -924,6 +1057,40 @@ function noticeLabel(mode) {
     return ({ level: 'LEVEL ALERT', reward: 'REWARD ALERT', quest: 'MISSION ALERT', skill: 'SKILL ALERT', title: 'TITLE ALERT', item: 'ITEM ALERT', equipment: 'EQUIPMENT ALERT', shop: 'SHOP ALERT', danger: 'DANGER ALERT', heal: 'RECOVERY ALERT', mana: 'MANA ALERT', stat: 'STATUS ALERT', scene: 'SCENE ALERT' })[mode] || 'SYSTEM ALERT';
 }
 
+function showJobChangeModal() {
+    const state = getState(); const offer = state.player.jobChangeOffer;
+    if (!offer?.active) return;
+    const modal = document.getElementById('sl-item-modal'); if (!modal) return;
+    modal.innerHTML = `<button class="sl-submodal-backdrop" type="button" data-sl-action="close-modal"></button><article class="sl-item-sheet sl-quest-sheet"><header><span>LEVEL 50 JOB CHANGE</span><button type="button" data-sl-action="close-modal"><i class="fa-solid fa-xmark"></i></button></header><div class="sl-quest-sheet-hero"><span><i class="fa-solid fa-crown"></i></span><div><em>JOB CHANGE PROTOCOL</em><h3>${html(offer.name)}</h3><p>UNIQUE CLASS DESIGNATION AVAILABLE</p></div></div><section><h4>NEW JOB / TITLE NAME</h4><p>${html(offer.description)}</p><form id="sl-job-change-form"><label><span>EDIT NAME BEFORE CONFIRMING</span><input id="sl-job-change-name" type="text" maxlength="100" value="${html(offer.name)}" autocomplete="off"></label><button type="submit" class="sl-primary-action"><i class="fa-solid fa-check"></i> CONFIRM JOB CHANGE</button></form></section><footer><button type="button" data-sl-action="close-modal">CANCEL</button></footer></article>`;
+    modal.hidden = false;
+    modal.querySelector('#sl-job-change-name')?.focus();
+    modal.querySelector('#sl-job-change-name')?.select();
+}
+
+async function saveJobChange() {
+    const state = getState(); const offer = state.player.jobChangeOffer;
+    if (!offer?.active) return;
+    const name = text(document.getElementById('sl-job-change-name')?.value, offer.name, 100);
+    if (!name) return systemNotice('warning', 'JOB NAME REQUIRED', 'Enter a name before confirming the Level 50 Job Change.');
+    const previousJob = state.player.job;
+    state.player.job = name;
+    state.player.jobHistory = uniqueTextList([...state.player.jobHistory, name]);
+    state.player.titleHistory = uniqueTextList([...state.player.titleHistory, state.player.title]);
+    state.player.achievements = uniqueTextList([...state.player.achievements, 'Level 50 Job Change: ' + name]);
+    state.player.jobChangeHistory.push({ id: offer.id || uid('job-change'), name, sourceLevel: offer.sourceLevel || 50, changedAt: new Date().toISOString() });
+    state.player.jobChangeOffer = { ...offer, active: false, acceptedName: name };
+    const quest = state.quests.find(entry => entry.id === offer.questId);
+    if (quest) {
+        quest.objectives = quest.objectives.map(objective => ({ ...objective, current: objective.goal, completed: true }));
+        quest.status = 'Completed';
+        if (!quest.currencyAwarded) { state.currency.amount += quest.currencyReward; quest.currencyAwarded = true; }
+    }
+    queueAction(state, 'job-change-confirmed', 'Confirmed the Level 50 Job Change as ' + name, { name, previousJob, offerId: offer.id });
+    await persistState(state, 'job-change-confirmed');
+    closeSubmodals();
+    systemNotice('title', 'JOB CHANGE CONFIRMED', name, { tab: 'status' });
+}
+
 function navigateNotice(destination = {}) {
     openInterface();
     if (destination.tab) activateTab(destination.tab);
@@ -931,6 +1098,7 @@ function navigateNotice(destination = {}) {
     if (destination.skillId) showSkillModal(destination.skillId);
     if (destination.itemId) showItemModal(destination.itemId);
     if (destination.shadowId) showShadowModal(destination.shadowId);
+    if (destination.jobChange) showJobChangeModal();
 }
 
 function buildEventNotice() {
@@ -957,7 +1125,7 @@ function playNextEventNotice() {
     panel.querySelector('[data-sl-event-title]').textContent = eventNoticeCurrent.title;
     panel.querySelector('[data-sl-event-detail]').textContent = eventNoticeCurrent.detail || 'The System has detected a confirmed change.';
     const icon = panel.querySelector('.sl-event-alarm > i'); if (icon) icon.className = `fa-solid ${noticeIcon(eventNoticeCurrent.mode)}`;
-    const interactive = Boolean(eventNoticeCurrent.destination?.tab || eventNoticeCurrent.destination?.questId || eventNoticeCurrent.destination?.skillId || eventNoticeCurrent.destination?.itemId || eventNoticeCurrent.destination?.shadowId);
+    const interactive = Boolean(eventNoticeCurrent.destination?.tab || eventNoticeCurrent.destination?.questId || eventNoticeCurrent.destination?.skillId || eventNoticeCurrent.destination?.itemId || eventNoticeCurrent.destination?.shadowId || eventNoticeCurrent.destination?.jobChange);
     panel.classList.toggle('is-interactive', interactive); panel.querySelector('[data-sl-event-open]').hidden = !interactive;
     panel.querySelector('.sl-event-queue').textContent = String(eventNoticeQueue.length + 1).padStart(2, '0');
     panel.classList.toggle('is-visible', shouldShowNotifications()); positionEventNotice();
@@ -992,6 +1160,8 @@ function announceChanges(before, after, source) {
     if (after.player.mp !== before.player.mp) notices.push([after.player.mp < before.player.mp ? 'mana' : 'heal', `MP ${after.player.mp < before.player.mp ? 'CONSUMED' : 'RECOVERED'}`, `${before.player.mp} → ${after.player.mp}`, { tab: 'status' }]);
     if (after.player.statPoints > before.player.statPoints) notices.push(['reward', 'STAT POINTS EARNED!', `+${after.player.statPoints - before.player.statPoints}`, { tab: 'status' }]);
     after.player.titles.filter(value => !before.player.titles.includes(value)).forEach(value => notices.push(['title', 'TITLE ACQUIRED!', value, { tab: 'status' }]));
+    if (after.player.jobChangeOffer?.active && !before.player.jobChangeOffer?.active) notices.push(['title', 'JOB CHANGE AVAILABLE', `${after.player.jobChangeOffer.name} · Tap View to edit and confirm your new name.`, { tab: 'status', jobChange: true }]);
+    if (after.player.job !== before.player.job) notices.push(['title', 'CURRENT JOB UPDATED', `${before.player.job} → ${after.player.job}`, { tab: 'status' }]);
     after.skills.filter(item => !before.skills.some(old => old.id === item.id)).forEach(item => {
         notices.push(['skill', 'SKILL ACQUIRED', `${item.name} · Rank ${item.rank}`, { tab: 'skills', skillId: item.id }]);
         if (item.activationRequired && !item.activationWords.length) notices.push(['warning', 'VOICE COMMAND REQUIRED', `Tap to configure ${item.name}`, { tab: 'skills', skillId: item.id }]);
@@ -1237,7 +1407,14 @@ async function useItem(itemId) {
     const state = getState(); const item = state.inventory.find(entry => entry.id === itemId); if (!item || item.quantity < 1) return; if (!item.usable) return systemNotice('warning', 'Item cannot be consumed', item.name);
     item.quantity -= 1; const equippedSlot = Object.keys(state.equipment).find(slot => state.equipment[slot] === item.id);
     if (item.quantity === 0 && equippedSlot) adjustEquipmentStats(state, item, -1);
-    state.player.hp = Math.min(state.player.maxHp, Math.max(0, state.player.hp + item.effects.hp)); state.player.mp = Math.min(state.player.maxMp, Math.max(0, state.player.mp + item.effects.mp));
+    if (item.effects.fullRecovery) {
+        state.player.hp = state.player.maxHp;
+        state.player.mp = state.player.maxMp;
+        state.player.fatigue = 0;
+    } else {
+        state.player.hp = Math.min(state.player.maxHp, Math.max(0, state.player.hp + item.effects.hp));
+        state.player.mp = Math.min(state.player.maxMp, Math.max(0, state.player.mp + item.effects.mp));
+    }
     state.player.fatigue = Math.max(0, state.player.fatigue + item.effects.fatigue);
     if (item.effects.cure || item.effects.detoxify) state.player.condition = 'Stable';
     for (const stat of Object.keys(state.player.stats)) state.player.stats[stat] = Math.max(0, state.player.stats[stat] + number(item.effects.stats?.[stat], 0));
@@ -1249,6 +1426,7 @@ async function buyItem(itemId) { const state = getState(); const item = state.sh
 
 function itemEffectSummary(item) {
     const effects = item.effects || {}; const parts = [];
+    if (effects.fullRecovery) parts.push(currentLanguage() === 'th' ? 'ฟื้นฟู HP/MP เต็มจำนวน' : 'FULL HP / MP RESTORE');
     if (effects.hp) parts.push(`HP ${effects.hp > 0 ? '+' : ''}${effects.hp}`);
     if (effects.mp) parts.push(`MP ${effects.mp > 0 ? '+' : ''}${effects.mp}`);
     if (effects.fatigue) parts.push(`${effects.fatigue < 0 ? 'Fatigue' : 'Fatigue'} ${effects.fatigue > 0 ? '+' : ''}${effects.fatigue}`);
@@ -1258,7 +1436,7 @@ function itemEffectSummary(item) {
     return effects.description || parts.join(' · ') || (currentLanguage() === 'th' ? 'ยังไม่มีเอฟเฟกต์ที่บันทึกไว้' : 'No registered effect.');
 }
 
-function shopPrompt(query = '') { const request = query ? `Generate exactly one item matching this request: ${query}` : 'Generate 8 varied random items appropriate for the current story and player level.'; return `${request}\nReturn only JSON: {"items":[{"id":"unique-id","name":"...","category":"Weapon|Armor|Gear|Potion|Consumable|Material|Misc","rarity":"Common|Uncommon|Rare|Epic|Legendary","quantity":1,"description":"...","price":100,"slot":"weapon|head|chest|hands|legs|feet|accessory|","usable":false,"effects":{"hp":0,"mp":0,"fatigue":0,"cure":false,"detoxify":false,"stats":{"strength":0,"agility":0,"vitality":0,"intelligence":0,"perception":0},"description":"..."}}]}. Every item must have a real mechanic: equippable items need a valid slot and stat/effect description; consumables need usable:true and at least one HP, MP, fatigue, cure, detoxify, or stat effect. Use Thai names/descriptions when the active role-play is Thai; otherwise English.\nPlayer/state context: ${JSON.stringify(stateForPrompt(getState()))}\nKeep it coherent with Solo Leveling-style progression and the active role-play. No Markdown.`; }
+function shopPrompt(query = '') { const request = query ? `Generate exactly one item matching this request: ${query}` : 'Generate 8 varied random items appropriate for the current story and player level.'; return `${request}\nReturn only JSON: {"items":[{"id":"unique-id","name":"...","category":"Weapon|Armor|Gear|Potion|Consumable|Material|Misc","rarity":"Common|Uncommon|Rare|Epic|Legendary","quantity":1,"description":"...","price":100,"tool":"weapon|equipment|consumable|misc","slot":"weapon|head|chest|hands|legs|feet|accessory|","usable":false,"effects":{"hp":0,"mp":0,"fatigue":0,"cure":false,"detoxify":false,"fullRecovery":false,"stats":{"strength":0,"agility":0,"vitality":0,"intelligence":0,"perception":0},"description":"..."}}]}. Every weapon must have tool:"weapon" and slot:"weapon"; every item must have a real mechanic: equippable items need a valid slot and stat/effect description; consumables need usable:true and at least one HP, MP, fatigue, cure, detoxify, fullRecovery, or stat effect. Use Thai names/descriptions when the active role-play is Thai; otherwise English.\nPlayer/state context: ${JSON.stringify(stateForPrompt(getState()))}\nKeep it coherent with Solo Leveling-style progression and the active role-play. No Markdown.`; }
 
 async function generateShop(query = '') {
     const currentContext = context(); if (shopGenerating) return; if (typeof currentContext.generateQuietPrompt !== 'function') return systemNotice('error', 'Shop generation unavailable', 'Active provider does not expose quiet generation');
@@ -1459,6 +1637,7 @@ function handleInterfaceSubmit(event) {
     else if (event.target.id === 'sl-activation-form') { event.preventDefault(); saveActivationWords(); }
     else if (event.target.id === 'sl-aura-form') { event.preventDefault(); saveAuraSettings(); }
     else if (event.target.id === 'sl-admin-form') { event.preventDefault(); saveAdministrator(); }
+    else if (event.target.id === 'sl-job-change-form') { event.preventDefault(); saveJobChange(); }
 }
 
 function handleInterfaceInput(event) {
@@ -1526,7 +1705,7 @@ function bindChatEvents() {
 
 async function initialize() {
     if (initialized) return; initialized = true;
-    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); const savedState = getState(); if (savedState.accepted && savedState.player.experience >= savedState.player.experienceRequired) await persistState(savedState, 'automatic-level-up'); else updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', () => { positionEventNotice(); positionEdgeLauncher(); }, { passive: true }); globalThis.visualViewport?.addEventListener('resize', positionEdgeLauncher, { passive: true }); globalThis.visualViewport?.addEventListener('scroll', positionEdgeLauncher, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
+    try { getSettings(); applyAppearance(); buildIsland(); buildEdgeLauncher(); buildInterface(); if (!(await addSettingsDrawer())) observeSettingsDrawer(); observeWandMenu(); bindChatEvents(); const savedState = getState(); if (savedState.accepted && savedState.player.experience >= savedState.player.experienceRequired) await persistState(savedState, 'automatic-level-up'); else updatePrompt(); syncEdgeLauncherVisibility(); document.addEventListener('keydown', event => { if (event.key === 'Escape') { if ([...document.querySelectorAll('.sl-submodal')].some(modal => !modal.hidden)) closeSubmodals(); else if (isInterfaceOpen()) closeInterface(); else setEdgeLauncher(false); } }); window.addEventListener('resize', () => { positionEventNotice(); positionEdgeLauncher(); }, { passive: true }); globalThis.visualViewport?.addEventListener('resize', positionEdgeLauncher, { passive: true }); globalThis.visualViewport?.addEventListener('scroll', positionEdgeLauncher, { passive: true }); globalThis.TheSystemExtension = { version: UI_VERSION, open: openInterface, close: closeInterface, state: getState, persist: persistState, notify: systemNotice }; console.info(`[The System] Interface v${UI_VERSION} loaded.`); }
     catch (error) { initialized = false; console.error('[The System] Failed to initialize.', error); }
 }
 
@@ -1541,7 +1720,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 const CK='solo_leveling_system_state',EK='solo_leveling_system_expansion_state',PK='solo_leveling_system_expansion_prompt',V='1.4.0';
 const RX=/<!--\s*solo_system_expansion_patch\s*:\s*([\s\S]*?)\s*-->/gi;
 const PATHS=new Set(['statusEffects','job','rankEvaluation','skillEvolutions','gates','dungeons','encounter','equipmentEnhancements','sets','titleEffects','achievements','questChains','summonSquads','bestiary','crafting','hunters','guilds']);
-const D={unlock:{status:'idle',signature:'',language:'en',excerpt:'',messageId:null},day:{lastKey:'',issued:[]},ui:{mission:'ongoing'},statusEffects:[],job:{name:'None',level:1,experience:0,experienceRequired:100,description:'',availableAdvancements:[]},rankEvaluation:{currentRank:'E',manaScore:null,evaluatedAt:'',eligible:false,specialDesignation:''},skillEvolutions:[],gates:[],dungeons:[],encounter:null,equipmentEnhancements:{},sets:[],titleEffects:[],achievements:[],questChains:[],summonSquads:[],bestiary:[],crafting:{recipes:[]},hunters:[],guilds:[],history:[],snapshots:[],balance:{profile:'standard',expGrowth:1.2,statPointsPerLevel:3,rewardMultiplier:1,enhancementCostMultiplier:1},lastCore:null,updatedAt:''};
+const D={unlock:{status:'idle',signature:'',language:'en',excerpt:'',messageId:null},day:{lastKey:'',issued:[]},ui:{mission:'ongoing'},statusEffects:[],job:{name:'None',level:1,experience:0,experienceRequired:100,description:'',availableAdvancements:[]},rankEvaluation:{currentRank:'E',manaScore:null,evaluatedAt:'',eligible:false,specialDesignation:''},skillEvolutions:[],gates:[],dungeons:[],encounter:null,equipmentEnhancements:{},sets:[],titleEffects:[],achievements:[],questChains:[],summonSquads:[],bestiary:[],crafting:{recipes:[]},hunters:[],guilds:[],history:[],snapshots:[],balance:{profile:'standard',expGrowth:1.2,statPointsPerLevel:3,rewardMultiplier:1,enhancementCostMultiplier:1},rewardLedger:{initialized:false,bestiary:{},quests:{}},lastCore:null,updatedAt:''};
 const C=()=>globalThis.SillyTavern?.getContext?.()||{};
 const cp=v=>{try{return structuredClone(v)}catch{return JSON.parse(JSON.stringify(v))}};
 const n=(v,d=0,a=-Infinity,b=Infinity)=>Number.isFinite(+v)?Math.min(b,Math.max(a,+v)):d;
@@ -1562,6 +1741,7 @@ function norm(x={}){
  z.rankEvaluation={...z.rankEvaluation,...(x.rankEvaluation||{})}; z.encounter=x.encounter&&typeof x.encounter==='object'?x.encounter:null;
  z.equipmentEnhancements=x.equipmentEnhancements&&typeof x.equipmentEnhancements==='object'&&!Array.isArray(x.equipmentEnhancements)?x.equipmentEnhancements:{};
  z.crafting={recipes:A(x.crafting?.recipes,150)}; z.history=A(x.history,240); z.snapshots=A(x.snapshots,10);
+ z.rewardLedger={...D.rewardLedger,...(x.rewardLedger||{}),bestiary:{...(x.rewardLedger?.bestiary||{})},quests:{...(x.rewardLedger?.quests||{})}};
  z.balance={...z.balance,...(x.balance||{})}; z.lastCore=x.lastCore&&typeof x.lastCore==='object'?x.lastCore:null; z.updatedAt=s(x.updatedAt,'',80); return z;
 }
 const ex=()=>norm(C().chatMetadata?.[EK]||{});
@@ -1571,6 +1751,39 @@ async function saveC(x){const c=C();if(!x||!c.getCurrentChatId?.())return false;
 const note=(m,t,d='',o={})=>{try{globalThis.TheSystemExtension?.notify?.(m,t,d,o)}catch(e){console.warn('[System Expansion] notice',e)}};
 function hist(x,type,title,detail=''){x.history.push({id:id('h'),at:new Date().toISOString(),type,title:s(title,'Event',140),detail:s(detail,'',400)});x.history=x.history.slice(-240)}
 function summary(c){return c?{level:n(c.player?.level,1),rank:s(c.player?.rank,'E'),hp:n(c.player?.hp),mp:n(c.player?.mp),req:n(c.player?.experienceRequired,100),points:n(c.player?.statPoints),day:n(c.scene?.dayCount),date:s(c.scene?.date),location:s(c.scene?.location),skills:A(c.skills).map(v=>v.id),items:A(c.inventory).map(v=>v.id),titles:A(c.player?.titles),summons:A(c.shadowArmy).filter(v=>!v.dismissed).map(v=>v.id),quests:Object.fromEntries(A(c.quests).map(v=>[v.id,v.status]))}:null}
+function monsterReward(entry) {
+ const rank=String(entry?.rank||'E').toUpperCase(), base={E:20,D:35,C:60,B:100,A:160,S:260,SS:420,NATIONAL:700}[rank]||25, level=n(entry?.level,1,1,9999);
+ const experience=Math.max(1,Math.round(base+level*5)), currency=Math.max(1,Math.round(experience*0.4));
+ return {experience,currency};
+}
+function primeRewardLedger(x,c) {
+ x.rewardLedger ||= {initialized:false,bestiary:{},quests:{}};
+ x.rewardLedger.bestiary ||= {}; x.rewardLedger.quests ||= {};
+ if (x.rewardLedger.initialized) return;
+ for (const entry of A(x.bestiary,300)) x.rewardLedger.bestiary[String(entry.id)] = n(entry.kills,0,0,999999999);
+ for (const quest of A(c?.quests,300)) x.rewardLedger.quests[String(quest.id)] = String(quest.status||'');
+ x.rewardLedger.initialized = true;
+}
+function settleAutomaticRewards(x,c) {
+ primeRewardLedger(x,c);
+ let changed=false, totalExperience=0, totalCurrency=0;
+ for (const entry of A(x.bestiary,300)) {
+  const id=String(entry.id), current=n(entry.kills,0,0,999999999), previous=n(x.rewardLedger.bestiary[id],0,0,999999999), delta=Math.max(0,current-previous);
+  if (delta) { const reward=monsterReward(entry); totalExperience+=reward.experience*delta; totalCurrency+=reward.currency*delta; changed=true; hist(x,'combat','Monster defeated',String(entry.name||id)+' ×'+delta); }
+  x.rewardLedger.bestiary[id]=current;
+ }
+ for (const quest of A(c?.quests,300)) {
+  const id=String(quest.id), status=String(quest.status||''), previous=String(x.rewardLedger.quests[id]||'');
+  if (/^completed$/i.test(status) && !/^completed$/i.test(previous) && !quest.currencyAwarded) {
+   const reward=n(quest.currencyReward,quest.daily?50:100,0,999999999); totalCurrency+=reward; quest.currencyAwarded=true; changed=true; hist(x,'quest','Quest System Coins awarded',String(quest.title||id)+' · +'+reward);
+  }
+  x.rewardLedger.quests[id]=status;
+ }
+ if (totalExperience) c.player.experience=n(c.player.experience,0,0,999999999)+totalExperience;
+ if (totalCurrency) c.currency.amount=n(c.currency.amount,0,0,999999999)+totalCurrency;
+ if (totalExperience||totalCurrency) note('reward','SYSTEM REWARDS ACQUIRED','+'+totalExperience+' EXP · +'+totalCurrency+' '+String(c.currency.symbol||'SC'),{event:true});
+ return changed||Boolean(totalExperience||totalCurrency);
+}
 function coreHistory(x,c){
  const b=x.lastCore,a=summary(c); if(!a)return;
  if(b){if(a.level>b.level)hist(x,'level','Level increased',`${b.level} → ${a.level}`);if(a.rank!==b.rank)hist(x,'rank','Hunter rank changed',`${b.rank} → ${a.rank}`);if(a.hp!==b.hp)hist(x,'hp','HP changed',`${b.hp} → ${a.hp}`);if(a.mp!==b.mp)hist(x,'mp','MP changed',`${b.mp} → ${a.mp}`);for(const q of a.skills.filter(v=>!b.skills?.includes(v)))hist(x,'skill','Skill acquired',q);for(const q of a.items.filter(v=>!b.items?.includes(v)))hist(x,'item','Item acquired',q);for(const q of a.titles.filter(v=>!b.titles?.includes(v)))hist(x,'title','Title acquired',q);for(const q of a.summons.filter(v=>!b.summons?.includes(v)))hist(x,'summon','Summon registered',q);for(const [q,st] of Object.entries(a.quests))if(b.quests?.[q]&&b.quests[q]!==st)hist(x,'quest','Mission status changed',`${q}: ${b.quests[q]} → ${st}`)}
@@ -1579,7 +1792,7 @@ function coreHistory(x,c){
 function balance(x,c){const b=x.lastCore;if(!b||!c?.player)return false;const g=n(c.player.level)-n(b.level);if(g<=0)return false;if(x.balance.statPointsPerLevel!==3)c.player.statPoints=Math.max(0,n(c.player.statPoints)+(x.balance.statPointsPerLevel-3)*g);if(Math.abs(x.balance.expGrowth-1.2)>.001)c.player.experienceRequired=Math.max(1,Math.ceil(n(b.req,100)*Math.pow(x.balance.expGrowth,g)));return true}
 function dayKey(c){const q=c?.scene||{},dc=n(q.dayCount);const date=s(q.date),yr=s(q.year),dy=s(q.day);if(date&&!/^unknown$/i.test(date))return`${yr}|${date}|${dc||dy}`;return dc>0?`day:${dc}|${dy}`:''}
 function hash(v){let h=2166136261;for(const c of String(v)){h^=c.codePointAt(0);h=Math.imul(h,16777619)}return h|0}
-function reward(key,l,th){const st=['strength','agility','vitality','intelligence','perception'][Math.abs(hash(key))%5],hp=70+l*5,mp=45+l*4;const item=(idn,name,cat,desc,ef)=>({id:idn,name,category:cat,rarity:l>=35?'Rare':l>=20?'Uncommon':'Common',quantity:1,description:desc,price:0,slot:'',usable:true,effects:{hp:0,mp:0,fatigue:0,cure:false,detoxify:false,stats:{},description:desc,...ef}});return[{id:`${key}-hp`,type:'item',name:th?'ยาฟื้นฟูรายวัน':'Daily Recovery Potion',amount:1,item:item(`${key}-hpi`,th?'ยาฟื้นฟูรายวัน':'Daily Recovery Potion','Potion',th?`ฟื้นฟู HP ${hp}`:`Restore ${hp} HP`,{hp})},{id:`${key}-mp`,type:'item',name:th?'ยาฟื้นมานารายวัน':'Daily Mana Potion',amount:1,item:item(`${key}-mpi`,th?'ยาฟื้นมานารายวัน':'Daily Mana Potion','Potion',th?`ฟื้นฟู MP ${mp}`:`Restore ${mp} MP`,{mp})},{id:`${key}-stat`,type:'item',name:th?'ตราฝึกฝนระบบ':'System Training Emblem',amount:1,item:item(`${key}-sti`,th?'ตราฝึกฝนระบบ':'System Training Emblem','Consumable',th?`เพิ่ม ${st.toUpperCase()} 1 แต้ม`:`Increase ${st.toUpperCase()} by 1`,{stats:{[st]:1}})}]}
+function reward(key,l,th){const st=['strength','agility','vitality','intelligence','perception'][Math.abs(hash(key))%5],hp=70+l*5,mp=45+l*4;const item=(idn,name,cat,desc,ef)=>({id:idn,name,category:cat,rarity:l>=35?'Rare':l>=20?'Uncommon':'Common',quantity:1,description:desc,price:0,slot:'',usable:true,effects:{hp:0,mp:0,fatigue:0,cure:false,detoxify:false,stats:{},description:desc,...ef}});const fullRecovery=item(`${key}-recovery`,th?'ฟื้นฟูเต็มรูปแบบ':'Full Recovery','Potion',th?'ฟื้นฟู HP และ MP เต็มจำนวน และล้างความเหนื่อยล้า/พิษ':'Fully restores HP and MP, clears fatigue, and stabilizes the Player.',{hp:0,mp:0,fatigue:0,cure:true,detoxify:true,fullRecovery:true,description:'FULL HP / MP RESTORE'});return[{id:`${key}-recovery`,type:'item',name:fullRecovery.name,amount:1,item:fullRecovery},{id:`${key}-mp`,type:'item',name:th?'ยาฟื้นมานารายวัน':'Daily Mana Potion',amount:1,item:item(`${key}-mpi`,th?'ยาฟื้นมานารายวัน':'Daily Mana Potion','Potion',th?`ฟื้นฟู MP ${mp}`:`Restore ${mp} MP`,{mp})},{id:`${key}-stat`,type:'item',name:th?'ตราฝึกฝนระบบ':'System Training Emblem',amount:1,item:item(`${key}-sti`,th?'ตราฝึกฝนระบบ':'System Training Emblem','Consumable',th?`เพิ่ม ${st.toUpperCase()} 1 แต้ม`:`Increase ${st.toUpperCase()} by 1`,{stats:{[st]:1}})}]}
 function dailyQuest(c,x,key,th){const l=n(c.player?.level,1),er=Math.max(100,Math.round((120+l*18)*x.balance.rewardMultiplier));return{id:`daily-auto-${Math.abs(hash(key)).toString(36)}`,title:th?'ภารกิจรายวัน: การฝึกพื้นฐาน':'Daily Quest: Foundation Training',type:'Daily',daily:true,status:'Active',description:th?'ทำภารกิจให้สำเร็จก่อนวันในเนื้อเรื่องจะสิ้นสุด':'Complete every objective before the current role-play day ends.',objectives:[['pushups',th?'วิดพื้น':'Push-ups',100,th?'ครั้ง':'reps'],['situps',th?'ซิทอัพ':'Sit-ups',100,th?'ครั้ง':'reps'],['squats',th?'สควอต':'Squats',100,th?'ครั้ง':'reps'],['run',th?'วิ่ง':'Run',10,'km']].map(v=>({id:v[0],label:v[1],current:0,goal:v[2],unit:v[3],completed:false})),experienceReward:er,rewardOptions:reward(key,l,th),rewardClaimed:false,claimedRewardId:'',deadline:th?'ก่อนวันในเนื้อเรื่องจะสิ้นสุด':'Before role-play day ends',penalty:{hp:0,mp:0,currency:0,experience:Math.min(100,l*4),description:th?'ระบบบทลงโทษทำงานเมื่อวันสิ้นสุด':'Penalty protocol activates if the day ends.'},penaltyApplied:false}}
 async function daily(x,c){if(!c?.accepted)return false;const k=dayKey(c);if(!k)return false;let ch=false;if(x.day.lastKey&&x.day.lastKey!==k)for(const q of A(c.quests))if(q.daily&&String(q.status).toLowerCase()==='active'&&String(q.id).startsWith('daily-auto-')){q.status='Failed';hist(x,'quest','Daily Quest failed',q.title);ch=true}x.day.lastKey=k;if(n(c.player?.level,1)>=50||x.day.issued.includes(k))return ch;const th=thai((C().chat||[]).slice(-4).map(v=>v?.mes||'').join('\n')),q=dailyQuest(c,x,k,th);c.quests||=[];c.quests.push(q);x.day.issued.push(k);x.day.issued=x.day.issued.slice(-120);hist(x,'quest','Daily Quest issued',q.title);note('quest',th?'ภารกิจรายวันใหม่':'NEW DAILY QUEST',q.title,{tab:'quest',questId:q.id});return true}
 function tick(x){let ch=false;for(const e of x.statusEffects)if(e.active&&e.remainingReplies!=null){if(e.remainingReplies>0){e.remainingReplies--;ch=true}if(e.remainingReplies<=0){e.active=false;hist(x,'effect','Status effect ended',e.name);ch=true}}return ch}
@@ -1590,7 +1803,7 @@ function unlockUI(x){if(document.getElementById('slx-unlock-notice')||x.unlock.s
 async function accept(){const c=core(),x=ex();if(!c)return;c.accepted=true;c.pendingActions||=[];c.pendingActions.push({id:id('a'),type:'system-unlock',summary:'Accepted Player designation and connected to The System.',payload:{source:'automatic-unlock'},at:new Date().toISOString()});x.unlock.status='accepted';hist(x,'system','Player designation accepted',x.unlock.excerpt);await saveC(c);await saveE(x);document.getElementById('slx-unlock-notice')?.remove();note('level',x.unlock.language==='th'?'PLAYER ได้รับการยืนยัน':'PLAYER AUTHORIZED',x.unlock.language==='th'?'ระบบเชื่อมต่อกับแชตนี้แล้ว':'The System is now connected to this chat.',{event:true});globalThis.TheSystemExtension?.open?.()}
 async function decline(){const x=ex();x.unlock.status='declined';hist(x,'system','Player designation declined',x.unlock.excerpt);await saveE(x);document.getElementById('slx-unlock-notice')?.remove()}
 
-Object.assign(R,{CK,EK,PK,V,RX,PATHS,D,C,cp,n,s,A,H,id,thai,pct,core,norm,ex,meta,saveE,saveC,note,hist,summary,coreHistory,balance,dayKey,hash,reward,dailyQuest,daily,tick,achievements,unlockScore,unlock,unlockUI,accept,decline});
+Object.assign(R,{CK,EK,PK,V,RX,PATHS,D,C,cp,n,s,A,H,id,thai,pct,core,norm,ex,meta,saveE,saveC,note,hist,summary,coreHistory,balance,dayKey,hash,reward,dailyQuest,daily,tick,achievements,unlockScore,unlock,unlockUI,accept,decline,primeRewardLedger,settleAutomaticRewards});
 
 })();
 
@@ -1984,7 +2197,7 @@ Object.assign(R,{filter,applyFilter,cards,box,tabs,openTab,panels,reconnect,rend
 const R=globalThis.__SLX_SYSTEM_EXPANSION__;
 const {C,n,A,core,ex,saveE,saveC,hist,balance,coreHistory,daily,tick,achievements,unlock,unlockUI,extract,patch,prompt,schedule,ui,norm,snapshot,restore,render,EK,V}=R;
 let init=false,processing=false;
-async function message(mi){if(processing)return;processing=true;try{await new Promise(r=>setTimeout(r,0));const ch=C().chat||[],m=Number.isInteger(mi)?ch[mi]:[...ch].reverse().find(v=>!v?.is_user&&!v?.is_system&&v?.mes),c=core();let x=ex();if(!c)return;const u=unlock(x,c,Number.isInteger(mi)?mi:ch.indexOf(m));if(u){x.unlock={status:'pending',...u};hist(x,'system','Player qualification detected',u.excerpt);await saveE(x);unlockUI(x);return}if(!c.accepted){prompt(x);return}x.unlock.status='accepted';if(m?.mes){const z=extract(m.mes);if(z.visible!==m.mes){m.mes=z.visible;if(Array.isArray(m.swipes)&&Number.isInteger(m.swipe_id)&&m.swipes[m.swipe_id]!==undefined)m.swipes[m.swipe_id]=z.visible}if(z.patch)x=patch(x,z.patch)}const bc=balance(x,c);coreHistory(x,c);const dq=await daily(x,c),tk=tick(x),ach=achievements(x,c);if(bc||dq)await saveC(c);if(bc||dq||tk||ach||m?.mes)await saveE(x);else prompt(x)}catch(e){console.error('[System Expansion] message processing failed safely',e)}finally{processing=false}}
+async function message(mi){if(processing)return;processing=true;try{await new Promise(r=>setTimeout(r,0));const ch=C().chat||[],m=Number.isInteger(mi)?ch[mi]:[...ch].reverse().find(v=>!v?.is_user&&!v?.is_system&&v?.mes),c=core();let x=ex();if(!c)return;const u=unlock(x,c,Number.isInteger(mi)?mi:ch.indexOf(m));if(u){x.unlock={status:'pending',...u};hist(x,'system','Player qualification detected',u.excerpt);await saveE(x);unlockUI(x);return}if(!c.accepted){prompt(x);return}primeRewardLedger(x,c);x.unlock.status='accepted';if(m?.mes){const z=extract(m.mes);if(z.visible!==m.mes){m.mes=z.visible;if(Array.isArray(m.swipes)&&Number.isInteger(m.swipe_id)&&m.swipes[m.swipe_id]!==undefined)m.swipes[m.swipe_id]=z.visible}if(z.patch)x=patch(x,z.patch)}const automaticRewards=settleAutomaticRewards(x,c);const bc=balance(x,c);coreHistory(x,c);const dq=await daily(x,c),tk=tick(x),ach=achievements(x,c);if(automaticRewards&&globalThis.TheSystemExtension?.persist)await globalThis.TheSystemExtension.persist(c,'automatic-reward');else if(bc||automaticRewards)await saveC(c);if(bc||dq||tk||ach||automaticRewards||m?.mes)await saveE(x);else prompt(x)}catch(e){console.error('[System Expansion] message processing failed safely',e)}finally{processing=false}}
 function events(){const c=C(),e=c.eventSource,t=c.eventTypes;if(!e?.on||!t)return;if(t.CHAT_CHANGED)e.on(t.CHAT_CHANGED,()=>{document.getElementById('slx-unlock-notice')?.remove();prompt();schedule()});if(t.MESSAGE_SENT)e.on(t.MESSAGE_SENT,()=>{prompt();schedule()});if(t.MESSAGE_RECEIVED)e.on(t.MESSAGE_RECEIVED,(...a)=>void message(...a))}
 async function waitCore(){for(let i=0;i<80;i++){if(globalThis.TheSystemExtension?.state&&globalThis.TheSystemExtension?.open)return true;await new Promise(r=>setTimeout(r,25))}return false}
 async function start(){if(init)return;init=true;try{await waitCore();C().chatMetadata||={};if(!C().chatMetadata[EK])C().chatMetadata[EK]=norm();document.addEventListener('click',e=>void ui(e));events();prompt();R.setupObserver?.();schedule();globalThis.TheSystemExpansion={version:V,state:ex,snapshot,restore,render};console.info(`[The System Expansion] v${V} loaded.`)}catch(e){init=false;console.error('[System Expansion] init failed safely',e)}}
